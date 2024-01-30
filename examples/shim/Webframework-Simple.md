@@ -59,6 +59,14 @@ API#instrumentWebframework}.
 const newrelic = require('newrelic')
 newrelic.instrumentWebframework('my-web-framework', instrumentMyWebFramework)
 ```
+If you are instrumenting a local file that doesn't exist within `node_modules`, you must additionally pass in `absolutePath` with the absolute path to the file being instrumented. 
+
+```js
+const newrelic = require('newrelic')
+const frameworkPath = require.resolve('./my-web-framework')
+
+newrelic.instrumentWebframework({ absolutePath: frameworkPath, moduleName: 'my-web-framework', onRequire: instrumentMyWebFramework})
+```
 
 The instrumentation function can be included in the application code itself or
 it can live in a separate instrumentation module. In either case, we need to
@@ -86,7 +94,7 @@ attributes. It is also displayed in the Environment view.
 ```
 
 <div style="text-align:center">
-  ![transaction breakdown](./breakdown-table-web-framework.png)
+  <img src="./breakdown-table-web-framework.png" alt="transaction breakdown">
 </div>
 
 ### What to Record
@@ -129,7 +137,7 @@ Since there can be many middlewares executed for a single request, it is useful 
 how much time is spent in each middleware when troubleshooting performance.
 
 <div style="text-align:center">
-  ![transaction breakdown](./tx-breakdown-web-api.png)
+  <img src="./tx-breakdown-web-api.png" alt="transaction breakdown">
 </div>
 
 There are two API functions related to middleware - {@link WebFrameworkShim#recordMiddleware}
@@ -195,7 +203,7 @@ used for correctly naming the middleware metrics.
 The following types are allowed:
 
 | type | description | generated metric | trace segment |
-| --- | --- | --- |
+| --- | --- | --- | --- |
 | MIDDLEWARE | Represents a generic middleware function. This could be a function that is executed for all types of requests (e.g. authentication), or a responder function associated (mounted) with a specific URL path. | `Nodejs/Middleware/<framework>/<function name>/<mounted path>` | `Middleware: <function name> <mounted path>` <br/><br/>Note: If the middleware is nested under a ROUTE middleware, the path is omitted (since it's displayed in the ROUTE segment name). |
 | ERRORWARE | Used for recording middlewares that are used for handling errors. | `Nodejs/Middleware/<framework>/<function name>/<mounted path>`<br/><br/>Note: The mounted path will reflect the path that was current when the error occurred. If the error handler itself is not mounted on a path, its path is appended to the originating path. | `Middleware: <function name> <mounted path>` |
 | PARAMWARE | This is a special type of middleware used for extracting parameters from URLs. | `Nodejs/Middleware/<framework>/<function name>//[param handler :<param name>]` | `Middleware: <function name> /[param handler :<param name>]` |
