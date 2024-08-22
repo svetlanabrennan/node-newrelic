@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<package>
+  <metadata>
+    <id>zzzNA.Azure.WebSites.Extension.NA</id>
+    <version>{VERSION}-{NODE_VERSION}</version>
+    <title>zzz NA {VERSION} (Node.js {NODE_VERSION})</title>
+    <authors>zzzc</authors>
+    <license type="expression">Apache-2.0</license>
+    <projectUrl>https://github.com/zzz</projectUrl>
+    <requireLicenseAcceptance>true</requireLicenseAcceptance>
+    <description>This extension adds the zzz NA to your Azure WebSite.</description>
+    <copyright>zzz, 2024</copyright>
+    <tags>AzureSiteExtension</tags>
+    <packageTypes>
+      <packageType name="AzureSiteExtension" />
+    </packageTypes>
+  </metadata>
+  <files>
+    <file src="Content\**\*.*" target="content" />
+  </files>
+</package>
