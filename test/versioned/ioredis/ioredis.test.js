@@ -12,6 +12,7 @@ const params = require('../../lib/params')
 const urltils = require('../../../lib/util/urltils')
 const { tspl } = require('@matteo.collina/tspl')
 const { assertMetrics } = require('../../lib/custom-assertions')
+const { removeModules } = require('../../lib/cache-buster')
 
 // Indicates unique database in Redis. 0-15 supported.
 const DB_INDEX = 3
@@ -46,6 +47,7 @@ test('ioredis instrumentation', async (t) => {
   t.afterEach((ctx) => {
     const { agent, redisClient } = ctx.nr
     helper.unloadAgent(agent)
+    removeModules(['ioredis'])
     redisClient.disconnect()
   })
 
