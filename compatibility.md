@@ -15,7 +15,7 @@ supported by the agent.
 | `@apollo/server` | 4.0.0 | 5.0.0 | `@newrelic/apollo-server-plugin@2.1.0` |
 | `@aws-sdk/client-bedrock-runtime` | 3.474.0 | 3.914.0 | 11.13.0 |
 | `@aws-sdk/client-dynamodb` | 3.0.0 | 3.914.0 | 8.7.1 |
-| `@aws-sdk/client-sns` | 3.0.0 | 3.914.0 | 8.7.1 |
+| `@aws-sdk/client-sns` | 3.0.0 | 3.915.0 | 8.7.1 |
 | `@aws-sdk/client-sqs` | 3.0.0 | 3.914.0 | 8.7.1 |
 | `@aws-sdk/lib-dynamodb` | 3.377.0 | 3.914.0 | 8.7.1 |
 | `@aws-sdk/smithy-client` | 3.47.0 | 3.374.0 | 8.7.1 |
@@ -30,7 +30,7 @@ supported by the agent.
 | `@nestjs/cli` | 9.0.0 | 11.0.10 | 10.1.0 |
 | `@opensearch-project/opensearch` | 2.1.0 | 3.5.1 | 12.10.0 |
 | `@prisma/client` | 5.0.0 | 6.18.0 | 11.0.0 |
-| `@smithy/smithy-client` | 2.0.0 | 4.9.0 | 11.0.0 |
+| `@smithy/smithy-client` | 2.0.0 | 4.9.1 | 11.0.0 |
 | `amqplib` | 0.5.0 | 0.10.9 | 2.0.0 |
 | `aws-sdk` | 2.2.48 | 2.1692.0 | 6.2.0 |
 | `bluebird` | 2.0.0 | 3.7.2 | 1.27.0 |
