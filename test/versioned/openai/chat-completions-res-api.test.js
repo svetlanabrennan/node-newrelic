@@ -72,7 +72,7 @@ test('responses.create', async (t) => {
     await plan.completed
   })
 
-  await t.test('should create span on successful chat completion create', (t, end) => {
+  await t.test('should create span on successful chat completion create - test', (t, end) => {
     const { client, agent, host, port } = t.nr
     helper.runInTransaction(agent, async (tx) => {
       const results = await client.responses.create({
