@@ -9,22 +9,22 @@ const { describe, test } = require('node:test')
 const DatastoreShim = require('../../../lib/shim/datastore-shim')
 const helper = require('../../lib/agent_helper')
 const http = require('http')
-const SpanEvent = require('../../../lib/spans/span-event')
+const Span = require('../../../lib/spans/span')
 const DatastoreParameters = require('../../../lib/shim/specs/params/datastore')
 const { QuerySpec } = require('../../../lib/shim/specs')
 const nock = require('nock')
 
 test('#constructor() should construct an empty span event', () => {
   const attrs = {}
-  const span = new SpanEvent(attrs)
+  const span = new Span(attrs)
 
   assert.ok(span)
-  assert.ok(span instanceof SpanEvent)
+  assert.ok(span instanceof Span)
   assert.equal(span.attributes, attrs)
 
   assert.ok(span.intrinsics)
   assert.equal(span.intrinsics.type, 'Span')
-  assert.equal(span.intrinsics.category, SpanEvent.CATEGORIES.GENERIC)
+  assert.equal(span.intrinsics.category, Span.CATEGORIES.GENERIC)
 
   const emptyProps = [
     'traceId',
@@ -44,7 +44,7 @@ test('#constructor() should construct an empty span event', () => {
 
 describe('createSpan()', () => {
   test('adds empty spanLinks if none present', () => {
-    const span = SpanEvent.createSpan({
+    const span = Span.createSpan({
       segment: {},
       attributes: {},
       customAttributes: {}
@@ -57,7 +57,7 @@ describe('createSpan()', () => {
     const segment = {
       spanLinks: [{ id: 1 }]
     }
-    const span = SpanEvent.createSpan({
+    const span = Span.createSpan({
       segment,
       attributes: {},
       customAttributes: {}
@@ -66,7 +66,7 @@ describe('createSpan()', () => {
   })
 
   test('adds empty timedEvents (otel span events) if none present', () => {
-    const span = SpanEvent.createSpan({
+    const span = Span.createSpan({
       segment: {},
       attributes: {},
       customAttributes: {}
@@ -79,7 +79,7 @@ describe('createSpan()', () => {
     const segment = {
       timedEvents: [{ name: 'custom.otel.span-event', attributes: { 'event.type': 'custom' } }]
     }
-    const span = SpanEvent.createSpan({
+    const span = Span.createSpan({
       segment,
       attributes: {},
       customAttributes: {}
@@ -123,15 +123,15 @@ test('fromSegment()', async (t) => {
       const spanContext = segment.getSpanContext()
       spanContext.addCustomAttribute('Span Lee', 'no prize')
 
-      const span = SpanEvent.fromSegment({ segment, transaction, parentId: 'parent', inProcessSpans: true })
+      const span = Span.fromSegment({ segment, transaction, parentId: 'parent', inProcessSpans: true })
 
       // Should have all the normal properties.
       assert.ok(span)
-      assert.ok(span instanceof SpanEvent)
+      assert.ok(span instanceof Span)
 
       assert.ok(span.intrinsics)
       assert.equal(span.intrinsics.type, 'Span')
-      assert.equal(span.intrinsics.category, SpanEvent.CATEGORIES.GENERIC)
+      assert.equal(span.intrinsics.category, Span.CATEGORIES.GENERIC)
 
       assert.equal(span.intrinsics.traceId, transaction.traceId)
       assert.equal(span.intrinsics.guid, segment.id)
@@ -190,16 +190,16 @@ test('fromSegment()', async (t) => {
         res.on('end', () => {
           const tx = agent.tracer.getTransaction()
           const [segment] = tx.trace.getChildren(tx.trace.root.id)
-          const span = SpanEvent.fromSegment({ segment, transaction, parentId: 'parent', inProcessSpans: true })
+          const span = Span.fromSegment({ segment, transaction, parentId: 'parent', inProcessSpans: true })
 
           // Should have all the normal properties.
           assert.ok(span)
-          assert.ok(span instanceof SpanEvent)
-          assert.ok(span instanceof SpanEvent.HttpSpanEvent)
+          assert.ok(span instanceof Span)
+          assert.ok(span instanceof Span.HttpSpan)
 
           assert.ok(span.intrinsics)
           assert.equal(span.intrinsics.type, 'Span')
-          assert.equal(span.intrinsics.category, SpanEvent.CATEGORIES.HTTP)
+          assert.equal(span.intrinsics.category, Span.CATEGORIES.HTTP)
 
           assert.equal(span.intrinsics.traceId, transaction.traceId)
           assert.equal(span.intrinsics.guid, segment.id)
@@ -291,16 +291,16 @@ test('fromSegment()', async (t) => {
       dsConn.myDbOp(longQuery, () => {
         transaction.end()
         const [segment] = transaction.trace.getChildren(transaction.trace.root.id)
-        const span = SpanEvent.fromSegment({ segment, transaction, parentId: 'parent', inProcessSpans: true })
+        const span = Span.fromSegment({ segment, transaction, parentId: 'parent', inProcessSpans: true })
 
         // Should have all the normal properties.
         assert.ok(span)
-        assert.ok(span instanceof SpanEvent)
-        assert.ok(span instanceof SpanEvent.DatastoreSpanEvent)
+        assert.ok(span instanceof Span)
+        assert.ok(span instanceof Span.DatastoreSpan)
 
         assert.ok(span.intrinsics)
         assert.equal(span.intrinsics.type, 'Span')
-        assert.equal(span.intrinsics.category, SpanEvent.CATEGORIES.DATASTORE)
+        assert.equal(span.intrinsics.category, Span.CATEGORIES.DATASTORE)
 
         assert.equal(span.intrinsics.traceId, transaction.traceId)
         assert.equal(span.intrinsics.guid, segment.id)
@@ -356,7 +356,7 @@ test('fromSegment()', async (t) => {
 
       setTimeout(() => {
         const segment = agent.tracer.getSegment()
-        const span = SpanEvent.fromSegment({ segment, transaction, parentId: 'parent', inProcessSpans: true })
+        const span = Span.fromSegment({ segment, transaction, parentId: 'parent', inProcessSpans: true })
 
         const serializedSpan = span.toJSON()
         const [intrinsics] = serializedSpan
@@ -389,7 +389,7 @@ test('fromSegment()', async (t) => {
         spanContext.addIntrinsicAttribute('intrinsic.1', 1)
         spanContext.addIntrinsicAttribute('intrinsic.2', 2)
 
-        const span = SpanEvent.fromSegment({ segment, transaction, parentId: 'parent', inProcessSpans: true })
+        const span = Span.fromSegment({ segment, transaction, parentId: 'parent', inProcessSpans: true })
 
         const serializedSpan = span.toJSON()
         const [intrinsics] = serializedSpan
@@ -414,10 +414,10 @@ test('fromSegment()', async (t) => {
           const [segment] = transaction.trace.getChildren(transaction.trace.root.id)
           assert.ok(segment.name.startsWith('Truncated'))
 
-          const span = SpanEvent.fromSegment({ segment, transaction, inProcessSpans: true })
+          const span = Span.fromSegment({ segment, transaction, inProcessSpans: true })
           assert.ok(span)
-          assert.ok(span instanceof SpanEvent)
-          assert.ok(span instanceof SpanEvent.HttpSpanEvent)
+          assert.ok(span instanceof Span)
+          assert.ok(span instanceof Span.HttpSpan)
 
           end()
         })
@@ -433,10 +433,10 @@ test('fromSegment()', async (t) => {
 
       assert.ok(segment.name.startsWith('Truncated'))
 
-      const span = SpanEvent.fromSegment({ segment, transaction, inProcessSpans: true })
+      const span = Span.fromSegment({ segment, transaction, inProcessSpans: true })
       assert.ok(span)
-      assert.ok(span instanceof SpanEvent)
-      assert.ok(span instanceof SpanEvent.DatastoreSpanEvent)
+      assert.ok(span instanceof Span)
+      assert.ok(span instanceof Span.DatastoreSpan)
 
       end()
     })
@@ -447,7 +447,7 @@ test('fromSegment()', async (t) => {
     helper.runInTransaction(agent, (transaction) => {
       const segment = transaction.trace.add('segmentName')
 
-      const span = SpanEvent.fromSegment({ segment, transaction, inProcessSpans: false })
+      const span = Span.fromSegment({ segment, transaction, inProcessSpans: false })
       assert.ok(!span)
       end()
     })
@@ -458,7 +458,7 @@ test('fromSegment()', async (t) => {
     helper.runInTransaction(agent, (transaction) => {
       const segment = transaction.trace.add('entrySpan')
       transaction.baseSegment = segment
-      const span = SpanEvent.fromSegment({ segment, transaction, inProcessSpans: false })
+      const span = Span.fromSegment({ segment, transaction, inProcessSpans: false })
       assert.ok(span)
       assert.equal(span.intrinsics['nr.entryPoint'], true)
       assert.equal(span.intrinsics.parentId, null)
@@ -473,7 +473,7 @@ test('fromSegment()', async (t) => {
       transaction.baseSegment = segment
       transaction.acceptedDistributedTrace = true
       const parentId = 'untouchedParentId'
-      const span = SpanEvent.fromSegment({ segment, transaction, inProcessSpans: false, isRoot: true, parentId })
+      const span = Span.fromSegment({ segment, transaction, inProcessSpans: false, isRoot: true, parentId })
       assert.ok(span)
       assert.equal(span.intrinsics['nr.entryPoint'], true)
       assert.equal(span.intrinsics.parentId, parentId)
@@ -489,7 +489,7 @@ test('fromSegment()', async (t) => {
       transaction.acceptedDistributedTrace = true
       const inProcessSegment = transaction.trace.add('inProcessSpan')
       const exitSegment = transaction.trace.add('Datastore/operation/foo', () => {}, inProcessSegment)
-      const span = SpanEvent.fromSegment({ segment: exitSegment, transaction, inProcessSpans: false, isRoot: false, parentId: 'parentId' })
+      const span = Span.fromSegment({ segment: exitSegment, transaction, inProcessSpans: false, isRoot: false, parentId: 'parentId' })
       assert.ok(span)
       assert.equal(span.intrinsics['nr.entryPoint'], null)
       assert.equal(span.intrinsics.parentId, segment.id)
@@ -507,7 +507,7 @@ test('fromSegment()', async (t) => {
         const inProcessSegment = transaction.trace.add('inProcessSpan')
         const exitSegment = transaction.trace.add(exitSpan, () => {}, inProcessSegment)
         assert.equal(exitSegment.parentId, inProcessSegment.id)
-        const span = SpanEvent.fromSegment({ segment: exitSegment, transaction, parentId: inProcessSegment.id, inProcessSpans: false })
+        const span = Span.fromSegment({ segment: exitSegment, transaction, parentId: inProcessSegment.id, inProcessSpans: false })
         assert.ok(span)
         assert.equal(span.intrinsics['nr.entryPoint'], null)
         assert.equal(span.intrinsics.parentId, segment.id)
@@ -520,7 +520,7 @@ test('fromSegment()', async (t) => {
     const { agent } = t.nr
     helper.runInTransaction(agent, (transaction) => {
       const segment = transaction.trace.add('Datastore/operation/Redis/SET')
-      const span = SpanEvent.fromSegment({ segment, transaction, inProcessSpans: true })
+      const span = Span.fromSegment({ segment, transaction, inProcessSpans: true })
       assert.ok(span)
       end()
     })
