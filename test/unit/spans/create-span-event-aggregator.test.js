@@ -9,7 +9,7 @@ const test = require('node:test')
 const Config = require('../../../lib/config')
 const SpanAggregator = require('../../../lib/spans/span-aggregator')
 const StreamingSpanEventAggregator = require('../../../lib/spans/streaming-span-event-aggregator')
-const createSpanEventAggregator = require('../../../lib/spans/create-span-event-aggregator')
+const createSpanEventAggregator = require('../../../lib/spans/create-span-aggregator')
 const BatchSpanStreamer = require('../../../lib/spans/batch-span-streamer')
 const SpanStreamer = require('../../../lib/spans/span-streamer')
 const sinon = require('sinon')
@@ -141,7 +141,7 @@ test('should revert to standard aggregator when it fails to create streaming agg
     trace: sinon.stub()
   }
 
-  const createSpanAggrStubbed = proxyquire('../../../lib/spans/create-span-event-aggregator', {
+  const createSpanAggrStubbed = proxyquire('../../../lib/spans/create-span-aggregator', {
     './streaming-span-event-aggregator': stub,
     '../logger': loggerStub
   })
