@@ -92,7 +92,7 @@ test('should properly attach span event data for one span event', async (t) => {
     const segmentChildren = tx.trace.getChildren(segment.id)
     const foundSegment = segmentChildren.find((c) => c.name === 'External/localhost/post')
     if (foundSegment) {
-      const httpSpanEvent = agent.spanEventAggregator.getEvents().find(
+      const httpSpanEvent = agent.spanAggregator.getEvents().find(
         (s) => s.intrinsics.name === 'External/localhost/post'
       )
 
@@ -141,7 +141,7 @@ test('should properly attach span event data for two span events', async (t) => 
     const segmentChildren = tx.trace.getChildren(segment.id)
     const foundSegment = segmentChildren.find((c) => c.name === 'External/localhost/post')
     if (foundSegment) {
-      const httpSpanEvent = agent.spanEventAggregator.getEvents().find(
+      const httpSpanEvent = agent.spanAggregator.getEvents().find(
         (s) => s.intrinsics.name === 'External/localhost/post'
       )
 
