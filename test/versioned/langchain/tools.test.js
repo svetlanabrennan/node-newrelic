@@ -24,7 +24,7 @@ const { DESTINATIONS } = require('../../../lib/config/attribute-filter')
 test.beforeEach((ctx) => {
   ctx.nr = {}
   ctx.nr.agent = helper.instrumentMockedAgent(config)
-  const TestTool = require('./helpers/custom-tool')
+  const TestTool = require('./custom-tool')
   const tool = new TestTool({
     baseUrl
   })
@@ -36,7 +36,7 @@ test.afterEach((ctx) => {
   helper.unloadAgent(ctx.nr.agent)
   // bust the require-cache so it can re-instrument
   removeModules(['@langchain/core'])
-  removeMatchedModules(/helpers\/custom-tool\.js$/)
+  removeMatchedModules(/custom-tool\.js$/)
 })
 
 test('should log tracking metrics', function(t) {
@@ -50,11 +50,11 @@ test('should create span on successful tools create', (t, end) => {
   helper.runInTransaction(agent, async (tx) => {
     const result = await tool.call(input)
     assert.ok(result)
-    assertSegments(tx.trace, tx.trace.root, ['Llm/tool/Langchain/node-agent-test-tool'], {
+    assertSegments(tx.trace, tx.trace.root, ['Llm/tool/LangChain/node-agent-test-tool'], {
       exact: false
     })
     tx.end()
-    assertSpanKind({ agent, segments: [{ name: 'Llm/tool/Langchain/node-agent-test-tool', kind: 'internal' }] })
+    assertSpanKind({ agent, segments: [{ name: 'Llm/tool/LangChain/node-agent-test-tool', kind: 'internal' }] })
     end()
   })
 })
@@ -65,7 +65,7 @@ test('should increment tracking metric for each tool event', (t, end) => {
     await tool.call(input)
 
     const metrics = agent.metrics.getOrCreateMetric(
-      `Supportability/Nodejs/ML/Langchain/${pkgVersion}`
+      `Supportability/Nodejs/ML/LangChain/${pkgVersion}`
     )
     assert.equal(metrics.callCount > 0, true)
 
@@ -170,6 +170,80 @@ test('should capture error events', (t, end) => {
     const str = Object.prototype.toString.call(exceptions[0].customAttributes)
     assert.equal(str, '[object LlmErrorMessage]')
     assert.equal(exceptions[0].customAttributes.tool_id, toolEvent.id)
+
+    tx.end()
+    end()
+  })
+})
+
+test('should not create llm tool events when ai_monitoring is disabled', (t, end) => {
+  const { agent, tool, input } = t.nr
+  agent.config.ai_monitoring.enabled = false
+
+  helper.runInTransaction(agent, async (tx) => {
+    await tool.call(input)
+
+    const events = agent.customEventAggregator.events.toArray()
+    assert.equal(events.length, 0, 'should not create llm events when ai_monitoring is disabled')
+
+    tx.end()
+    end()
+  })
+})
+
+test('should not create segment when ai_monitoring is disabled', (t, end) => {
+  const { agent, tool, input } = t.nr
+  agent.config.ai_monitoring.enabled = false
+
+  helper.runInTransaction(agent, async (tx) => {
+    await tool.call(input)
+
+    const segments = tx.trace.getChildren(tx.trace.root.id)
+    assert.equal(segments.length, 0, 'should not create segment when ai_monitoring is disabled')
+
+    tx.end()
+    end()
+  })
+})
+
+test('should properly merge metadata from instance and params', (t, end) => {
+  const { agent, tool, input } = t.nr
+  helper.runInTransaction(agent, async (tx) => {
+    tool.metadata = { instanceKey: 'instanceValue', shared: 'instance' }
+    await tool.call(input, { metadata: { paramsKey: 'paramsValue', shared: 'params' } })
+
+    const events = agent.customEventAggregator.events.toArray()
+    assert.equal(events.length, 1)
+    const [[, toolEvent]] = events
+
+    // params metadata should override instance metadata for shared keys
+    assert.equal(toolEvent['metadata.instanceKey'], 'instanceValue')
+    assert.equal(toolEvent['metadata.paramsKey'], 'paramsValue')
+    assert.equal(toolEvent['metadata.shared'], 'params')
+
+    tx.end()
+    end()
+  })
+})
+
+test('should properly merge tags from instance and params', (t, end) => {
+  const { agent, tool, input } = t.nr
+  helper.runInTransaction(agent, async (tx) => {
+    tool.tags = ['instance-tag1', 'instance-tag2', 'shared']
+    await tool.call(input, { tags: ['params-tag1', 'shared'] })
+
+    const events = agent.customEventAggregator.events.toArray()
+    assert.equal(events.length, 1)
+    const [[, toolEvent]] = events
+
+    // tags should be merged, with duplicates removed
+    const tags = toolEvent.tags.split(',')
+    assert.ok(tags.includes('instance-tag1'))
+    assert.ok(tags.includes('instance-tag2'))
+    assert.ok(tags.includes('params-tag1'))
+    assert.ok(tags.includes('shared'))
+    // should only have one 'shared' tag
+    assert.equal(tags.filter((t) => t === 'shared').length, 1)
 
     tx.end()
     end()
