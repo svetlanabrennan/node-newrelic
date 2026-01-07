@@ -7,7 +7,7 @@
 
 const benchmark = require('#testlib/benchmark.js')
 const helper = require('#testlib/agent_helper.js')
-const Span = require('#agentlib/spans/spant.js')
+const Span = require('#agentlib/spans/span.js')
 
 const suite = benchmark.createBenchmark({ name: 'Span' })
 let segment = null
