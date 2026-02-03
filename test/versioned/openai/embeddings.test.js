@@ -11,6 +11,7 @@ const { removeModules } = require('../../lib/cache-buster')
 const { assertSegments, assertSpanKind, match } = require('../../lib/custom-assertions')
 const createOpenAIMockServer = require('./mock-server')
 const helper = require('../../lib/agent_helper')
+const { findSegment } = require('../../lib/metrics_helper')
 
 const {
   AI: { OPENAI }
@@ -149,13 +150,13 @@ test('embedding invalid payload errors should be tracked', (t, end) => {
     match(tx.exceptions[0], {
       error: {
         status: 403,
-        code: null,
+        code: 'insufficient_quota',
         param: null
       },
       customAttributes: {
         'http.statusCode': 403,
-        'error.message': /You are not allowed to generate embeddings from this model/,
-        'error.code': null,
+        'error.message': /You exceeded your current quota, please check your plan and billing details/,
+        'error.code': 'insufficient_quota',
         'error.param': null,
         completion_id: undefined,
         embedding_id: /\w{32}/
@@ -201,8 +202,7 @@ test('should not create segment or llm events when ai_monitoring.enabled is fals
     const events = agent.customEventAggregator.events.toArray()
     assert.equal(events.length, 0, 'should not create llm events when ai_monitoring is disabled')
 
-    const children = tx.trace.segments.root.children
-    assert.equal(children.length, 0, 'should not create OpenAI completion segment')
+    assert.ok(!findSegment(tx.trace, tx.trace.root, OPENAI.EMBEDDING))
 
     tx.end()
     end()

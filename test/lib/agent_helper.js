@@ -9,6 +9,7 @@ const Agent = require('../../lib/agent')
 const API = require('../../api')
 const zlib = require('zlib')
 const copy = require('../../lib/util/copy')
+const hashes = require('#agentlib/util/hashes.js')
 const { defaultAttributeConfig } = require('./fixtures')
 const { EventEmitter } = require('events')
 const Transaction = require('../../lib/transaction')
@@ -435,6 +436,19 @@ helper.makeGetRequest = (url, options, callback) => {
  */
 helper.makeGetRequestAsync = util.promisify(helper.makeGetRequest)
 
+helper.asyncHttpCall = function (url, options) {
+  return new Promise((resolve, reject) => {
+    helper.makeRequest(url, options || {}, callback)
+
+    function callback (error, incomingMessage, body) {
+      if (error) {
+        return reject(error)
+      }
+      resolve({ response: incomingMessage, body })
+    }
+  })
+}
+
 helper.makeRequest = (url, options, callback) => {
   if (!options || typeof options === 'function') {
     callback = options
@@ -644,4 +658,11 @@ helper.readPackageVersion = function readPackageVersion(dirname, pkg) {
  */
 helper.randomString = function randomString(prefix = '') {
   return `${prefix}${crypto.randomBytes(8).toString('hex')}`
+}
+
+/**
+ * Simulates generating a random 32-character hexadecimal trace ID.
+ */
+helper.generateRandomTraceId = function generateRandomTraceId() {
+  return hashes.makeId(32)
 }

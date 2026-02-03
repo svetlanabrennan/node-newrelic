@@ -705,7 +705,8 @@ test('addSpanLink', async (t) => {
   await test('adds link to the internal array', (t) => {
     const { segment } = t.nr
     assert.equal(segment.spanLinks.length, 0)
-    segment.addSpanLink({ fake: 'link' })
+    const added = segment.addSpanLink({ fake: 'link' })
+    assert.equal(added, true)
     assert.equal(segment.spanLinks.length, 1)
     assert.deepStrictEqual(segment.spanLinks[0], { fake: 'link' })
   })
@@ -718,7 +719,8 @@ test('addSpanLink', async (t) => {
     }
     assert.equal(segment.spanLinks.length, 100)
 
-    segment.addSpanLink({ to: 'drop' })
+    const added = segment.addSpanLink({ to: 'drop' })
+    assert.equal(added, false)
     assert.equal(segment.spanLinks.length, 100)
     for (const link of segment.spanLinks) {
       assert.deepStrictEqual(link, { fake: 'link' })
@@ -727,6 +729,73 @@ test('addSpanLink', async (t) => {
       [
         { spanLink: { to: 'drop' } },
         'Span links limit reached. Not adding new link.'
+      ]
+    ])
+  })
+})
+
+test('addTimedEvent', async (t) => {
+  t.beforeEach((ctx) => {
+    const agent = helper.loadMockedAgent({
+      distributed_tracing: {
+        enabled: true
+      }
+    })
+    ctx.nr = {
+      logs: {
+        trace: []
+      }
+    }
+    const logger = {
+      trace(...args) {
+        ctx.nr.logs.trace.push(args)
+      }
+    }
+    const transaction = new Transaction(agent)
+    const root = transaction.trace.root
+    const segment = new TraceSegment({
+      config: agent.config,
+      name: 'UnitTest',
+      collect: true,
+      root
+    }, { logger })
+
+    ctx.nr.agent = agent
+    ctx.nr.segment = segment
+    ctx.nr.transaction = transaction
+  })
+
+  t.afterEach((ctx) => {
+    helper.unloadAgent(ctx.nr.agent)
+  })
+
+  await test('adds event to the internal array', (t) => {
+    const { segment } = t.nr
+    assert.equal(segment.timedEvents.length, 0)
+    const added = segment.addTimedEvent({ fake: 'event' })
+    assert.equal(added, true)
+    assert.equal(segment.timedEvents.length, 1)
+    assert.deepStrictEqual(segment.timedEvents[0], { fake: 'event' })
+  })
+
+  await test('logs message if array is full', (t) => {
+    const { segment } = t.nr
+    assert.equal(segment.timedEvents.length, 0)
+    for (let i = 0; i < 100; i += 1) {
+      segment.addTimedEvent({ fake: 'event' })
+    }
+    assert.equal(segment.timedEvents.length, 100)
+
+    const added = segment.addTimedEvent({ to: 'drop' })
+    assert.equal(added, false)
+    assert.equal(segment.timedEvents.length, 100)
+    for (const event of segment.timedEvents) {
+      assert.deepStrictEqual(event, { fake: 'event' })
+    }
+    match(t.nr.logs.trace, [
+      [
+        { timedEvent: { to: 'drop' } },
+        'Timed event limit reached. Not adding new event.'
       ]
     ])
   })

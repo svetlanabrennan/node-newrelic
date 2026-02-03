@@ -136,6 +136,9 @@ function assertChatCompletionMessage({
   expectedChatMsg.id = id
   expectedChatMsg.content = expectedContent
   expectedChatMsg.is_response = isResponse
+  if (isResponse === false) {
+    expectedChatMsg.timestamp = segment.timer.start
+  }
 
   assert.equal(messageBase.type, 'LlmChatCompletionMessage')
   match(messageData, expectedChatMsg)
@@ -159,7 +162,8 @@ function assertChatCompletionSummary({ tx, modelId, chatSummary, error = false, 
     'response.choices.finish_reason': error ? undefined : 'endoftext',
     'request.temperature': 0.5,
     'request.max_tokens': 100,
-    error
+    error,
+    timestamp: segment.timer.start
   }
 
   if (!error) {

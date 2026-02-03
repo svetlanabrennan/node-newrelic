@@ -53,9 +53,21 @@ test.afterEach((ctx) => {
   removeModules('@google/genai')
 })
 
-test('should log tracking metrics', function(t) {
-  const { agent } = t.nr
-  assertPackageMetrics({ agent, pkg: '@google/genai', version: pkgVersion })
+test('should log tracking metrics', function(t, end) {
+  t.plan(5)
+  const { agent, client } = t.nr
+  helper.runInTransaction(agent, async () => {
+    const model = 'gemini-2.0-flash'
+    await client.models.generateContent({
+      model,
+      contents: 'You are a mathematician.'
+    })
+    assertPackageMetrics(
+      { agent, pkg: '@google/genai', version: pkgVersion, subscriberType: true },
+      { assert: t.assert }
+    )
+    end()
+  })
 })
 
 test('should create span on successful models generateContent', (t, end) => {
@@ -129,9 +141,12 @@ test('should create chat completion message and summary for every message sent',
       resContent: '1 plus 2 is 3.',
       reqContent: content
     })
+    const requestMsg = chatMsgs.filter((msg) => msg[1].is_response === false)[0]
+    assert.equal(requestMsg[0].timestamp, requestMsg[1].timestamp, 'time added to event aggregator should equal `timestamp` property')
 
     const chatSummary = events.filter(([{ type }]) => type === 'LlmChatCompletionSummary')[0]
     assertChatCompletionSummary({ tx, model, chatSummary })
+    assert.equal(chatSummary[0].timestamp, chatSummary[1].timestamp, 'time added to event aggregator should equal `timestamp` property')
 
     tx.end()
     end()
@@ -337,7 +352,7 @@ test('should not create llm events when ai_monitoring.enabled is false', (t, end
 })
 
 test('should not create llm events when ai_monitoring.streaming.enabled is false', (t, end) => {
-  const { client, agent } = t.nr
+  const { client, agent, host, port } = t.nr
   agent.config.ai_monitoring.streaming.enabled = false
   helper.runInTransaction(agent, async (tx) => {
     const content = 'Streamed response'
@@ -367,11 +382,14 @@ test('should not create llm events when ai_monitoring.streaming.enabled is false
       'Supportability/Nodejs/ML/Streaming/Disabled'
     )
     assert.equal(streamingDisabled.callCount > 0, true)
-
-    const activeSeg = agent.tracer.getSegment()
-    assert.equal(activeSeg?.isRoot, true)
-    const children = tx.trace.getChildren(activeSeg.id)
-    assert.notEqual(children?.[0]?.name, GEMINI.COMPLETION)
+    const name = `External/${host}:${port}/v1beta/models/${model}:streamGenerateContent`
+    // Should still create the Gemini segment since ai_monitoring is enabled
+    assertSegments(
+      tx.trace,
+      tx.trace.root,
+      [GEMINI.COMPLETION, [name]],
+      { exact: false }
+    )
 
     tx.end()
     end()

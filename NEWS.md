@@ -1,3 +1,159 @@
+### v13.12.0 (2026-02-02)
+
+#### Features
+
+* Added instrumentation support for `@langchain/langgraph` ([#3645](https://github.com/newrelic/node-newrelic/pull/3645)) ([f339675](https://github.com/newrelic/node-newrelic/commit/f3396754fb182a3f0af09488a8abb1981b6f3e3f))
+* Added `timestamp` to `LlmChatCompletionSummary` messages
+    * Added `timestamp` to AWS Bedrock `LlmChatCompletionSummary` ([#3702](https://github.com/newrelic/node-newrelic/pull/3702)) ([430d1dd](https://github.com/newrelic/node-newrelic/commit/430d1dd5ef847203045486a054142df3a02c7c1c))
+    * Added `timestamp` to Google Gen AI `LlmChatCompletionSummary` ([#3690](https://github.com/newrelic/node-newrelic/pull/3690)) ([7748e26](https://github.com/newrelic/node-newrelic/commit/7748e26aceb7b050b13dc686c852513026f043ac))
+    * Added `timestamp` to LangChain `LlmChatCompletionSummary` ([#3701](https://github.com/newrelic/node-newrelic/pull/3701)) ([7472118](https://github.com/newrelic/node-newrelic/commit/747211814396e4bf52dc63d249c0ec045b35457a))
+* Added compact mode for span links ([#3681](https://github.com/newrelic/node-newrelic/pull/3681)) ([6ff6961](https://github.com/newrelic/node-newrelic/commit/6ff6961e6b46feb14638da97a95d0891a0d88645))
+
+#### Bug fixes
+
+* Updated langchain tool instrumentation to properly redefine the segment name on every call ([#3691](https://github.com/newrelic/node-newrelic/pull/3691)) ([4df6068](https://github.com/newrelic/node-newrelic/commit/4df6068d23b5da276486bd3d3f0c3af4b748c4a8))
+
+#### Documentation
+
+* Updated compatibility report ([#3699](https://github.com/newrelic/node-newrelic/pull/3699)) ([40b6b81](https://github.com/newrelic/node-newrelic/commit/40b6b813e7b6490c2e866a33cb1a7492b35d2a36))
+
+### v13.11.0 (2026-01-29)
+
+#### Features
+
+* Added `timestamp` to AIM `LlmChatCompletionMessage` messages
+    * Added `timestamp` to AWS Bedrock `LlmChatCompletionMessage` ([#3685](https://github.com/newrelic/node-newrelic/pull/3685)) ([ea297c8](https://github.com/newrelic/node-newrelic/commit/ea297c86772c1ae377a16e636db8bbcf53ef1547))
+    * Added `timestamp` to Google Gen AI `LlmChatCompletionMessage` ([#3686](https://github.com/newrelic/node-newrelic/pull/3686)) ([f4dd09e](https://github.com/newrelic/node-newrelic/commit/f4dd09ec332c47396277f6aaeff2f6f15daad97a))
+    * Added `timestamp` to LangChain input `LlmChatCompletionMessage` ([#3658](https://github.com/newrelic/node-newrelic/pull/3658)) ([0bce235](https://github.com/newrelic/node-newrelic/commit/0bce235ce02f772bc089bf947afadf312c735c1b))
+* Added timestamp to OpenAI `LlmChatCompletionSummary` ([#3689](https://github.com/newrelic/node-newrelic/pull/3689)) ([55b0310](https://github.com/newrelic/node-newrelic/commit/55b03100323eefb3578816cff69f2b919e4b7bdd))
+* Additional support for partial granularity traces (Not available for production use)
+    * Added essential tracing mode for span links ([#3670](https://github.com/newrelic/node-newrelic/pull/3670)) ([83dfb84](https://github.com/newrelic/node-newrelic/commit/83dfb84b842e0245392425ce61e92a2789fcaf06))
+    * Updated `Supportability/Nodejs/PartialGranularity/NrIds/Dropped` metric to only keep track of spans that got dropped when `nr.ids` execeeded 63 spans. ([#3684](https://github.com/newrelic/node-newrelic/pull/3684)) ([9797cf3](https://github.com/newrelic/node-newrelic/commit/9797cf38aa2808b29da9623158edb221b1819548))
+
+#### Bug fixes
+
+* Added defensive code in `lib/subscribers/middleware-wrapper.js` to prevent crash when attempting to associate an error on an incoming http request ([#3697](https://github.com/newrelic/node-newrelic/pull/3697)) ([658e78b](https://github.com/newrelic/node-newrelic/commit/658e78ba564eae996d790bb3334bda6847c7e2bd))
+* Updated `pg` instrumentation to properly capture the TraceSegment duration for promise based queries ([#3695](https://github.com/newrelic/node-newrelic/pull/3695)) ([0051697](https://github.com/newrelic/node-newrelic/commit/005169776a3f3fe9d988174857b3c96e6131aea3))
+
+#### Code refactoring
+
+* Added AIM abstract subscribers and updated all AIM subscribers to use them ([#3676](https://github.com/newrelic/node-newrelic/pull/3676)) ([08cd38b](https://github.com/newrelic/node-newrelic/commit/08cd38b5b34b4f1a2636ccc12d359484af6b3e83))
+
+#### Documentation
+
+* Updated compatibility report ([#3675](https://github.com/newrelic/node-newrelic/pull/3675)) ([cc898f4](https://github.com/newrelic/node-newrelic/commit/cc898f4d8b0f520e120f330ff9e90fe7baaebedc))
+
+#### Miscellaneous chores
+
+* Added TimedEvent limit of 100 ([#3683](https://github.com/newrelic/node-newrelic/pull/3683)) ([0d595d8](https://github.com/newrelic/node-newrelic/commit/0d595d8579b5a58e49908bc24321ce7b526ddff2))
+* Added supportability metrics `Supportability/Nodejs/SpanEvent/<Links|Events>/Dropped` when limit of 100 is exceeded ([#3688](https://github.com/newrelic/node-newrelic/pull/3688)) ([a247d31](https://github.com/newrelic/node-newrelic/commit/a247d31fc9c24752be50a73d4ddfc7a088a68ce6))
+* Removed eslint disable next line for `sonarjs/no-dead-store` ([#3692](https://github.com/newrelic/node-newrelic/pull/3692)) ([593fa15](https://github.com/newrelic/node-newrelic/commit/593fa15a033437b95fe375cf6034b8453c7d2b36))
+
+#### Continuous Integration
+* Fixed CI issue when sec-agent present ([#3677](https://github.com/newrelic/node-newrelic/pull/3677)) ([23da654](https://github.com/newrelic/node-newrelic/commit/23da6547e72f49bf798046330e8cfa74a0b4d2af))
+
+#### Tests
+
+* Assert that span events drop in partial traces ([#3680](https://github.com/newrelic/node-newrelic/pull/3680)) ([25e3781](https://github.com/newrelic/node-newrelic/commit/25e3781098343b9ca9e4aed0cd5c9e0f94266926))
+
+### v13.10.0 (2026-01-20)
+
+#### Features
+
+* Add `timestamp` to OpenAI input `LlmChatCompletionMessage`s ([#3657](https://github.com/newrelic/node-newrelic/pull/3657)) ([099e20e](https://github.com/newrelic/node-newrelic/commit/099e20eaa380615b7e8aae7eaa12e2754a931041))
+* Added reduced tracing mode for span links ([#3649](https://github.com/newrelic/node-newrelic/pull/3649)) ([2414331](https://github.com/newrelic/node-newrelic/commit/24143313e2d894a5e11e42116f33ef4be18f2fb4))
+
+#### Bug fixes
+
+* Updated OpenAI instrumentation to properly parse headers when a call fails ([#3665](https://github.com/newrelic/node-newrelic/pull/3665)) ([641b7a8](https://github.com/newrelic/node-newrelic/commit/641b7a8c8015855d82574e8173cb6e9fd082b4a0))
+
+#### Documentation
+
+* Updated compatibility report ([#3669](https://github.com/newrelic/node-newrelic/pull/3669)) ([ec922ae](https://github.com/newrelic/node-newrelic/commit/ec922ae6b0cecfa4ecbce86a789c308d6876ecd7)) ([#3668](https://github.com/newrelic/node-newrelic/pull/3668)) ([85c601f](https://github.com/newrelic/node-newrelic/commit/85c601fe2eaaacd82c0abac81eba96ce6718f2f1)) ([#3663](https://github.com/newrelic/node-newrelic/pull/3663)) ([82b3ac8](https://github.com/newrelic/node-newrelic/commit/82b3ac8cf6f69d0609b7fbaaf8be2a35f6552485))
+
+#### Miscellaneous chores
+
+* Lazy load OTEL dependencies ([#3667](https://github.com/newrelic/node-newrelic/pull/3667)) ([0b0c764](https://github.com/newrelic/node-newrelic/commit/0b0c7647f3f0bc3093b9ffbf7596c1654ba6113d))
+* Record subscriber usage metric ([#3626](https://github.com/newrelic/node-newrelic/pull/3626)) ([5796574](https://github.com/newrelic/node-newrelic/commit/57965740acd053e6c99a88d861a876bcf2601c07))
+* Update `ai-support.json` ([#3666](https://github.com/newrelic/node-newrelic/pull/3666)) ([562b403](https://github.com/newrelic/node-newrelic/commit/562b403a3414430cdd0afab261d3d119d3d9b4db))
+* Updated OpenAI instrumentation to skip creating a `LlmChatCompletionMessage` for an outgoing tool call response ([#3655](https://github.com/newrelic/node-newrelic/pull/3655)) ([572c3a1](https://github.com/newrelic/node-newrelic/commit/572c3a1741ebd13d77d857c262b050aeb0c801fc))
+
+#### Tests
+
+* Updated mock response to avoid retries on OpenAI LangChain vectorstore calls ([#3664](https://github.com/newrelic/node-newrelic/pull/3664)) ([bc1faf3](https://github.com/newrelic/node-newrelic/commit/bc1faf30654d920e31ad4ddc205560e56b6c796c))
+
+### v13.9.2 (2026-01-14)
+
+#### Bug fixes
+
+* Updated message consumer subscribers to properly time the consumption actions ([#3660](https://github.com/newrelic/node-newrelic/pull/3660)) ([ef1b611](https://github.com/newrelic/node-newrelic/commit/ef1b611a7c3b45f5fc8d483661859c1595bbe4ab))
+
+#### Documentation
+
+* Updated compatibility report ([#3654](https://github.com/newrelic/node-newrelic/pull/3654)) ([ca16dae](https://github.com/newrelic/node-newrelic/commit/ca16daefe4da1c17253e165c68d198d607c72d0b))
+
+#### Miscellaneous chores
+
+* Update OTEL metrics test ([#3661](https://github.com/newrelic/node-newrelic/pull/3661)) ([ae84b62](https://github.com/newrelic/node-newrelic/commit/ae84b62a3c7ef753d4ace8836f38405b4cbbfd88))
+
+#### Tests
+
+* Added cross agent tests for sampler configuration and sampling rate scenarios ([#3648](https://github.com/newrelic/node-newrelic/pull/3648)) ([fa0e2d1](https://github.com/newrelic/node-newrelic/commit/fa0e2d1bd78051c7f716ebc65bd7f3842698103e))
+
+### v13.9.1 (2026-01-12)
+
+#### Bug fixes
+
+* Updated `getHostnameSafe` to invalidate the cache is trying to assign the host based on the gcp cloud run id ([#3650](https://github.com/newrelic/node-newrelic/pull/3650)) ([d395c76](https://github.com/newrelic/node-newrelic/commit/d395c76d5612a7e562efa1a807c35e805a38ab14))
+* Updated logic to properly assign content and role in LangChain chat completion messages ([#3638](https://github.com/newrelic/node-newrelic/pull/3638)) ([407bcb6](https://github.com/newrelic/node-newrelic/commit/407bcb66b7e3be1b6f1d28bcf6e3b022a7022c96))
+
+#### Documentation
+
+* Updated compatibility report ([#3643](https://github.com/newrelic/node-newrelic/pull/3643)) ([8929ab3](https://github.com/newrelic/node-newrelic/commit/8929ab3ae6cc28edbef4bee41a2084154361d6e0))
+
+### v13.9.0 (2026-01-08)
+
+#### Features
+
+* Added `entity_guid` to Agent Control health file ([#3594](https://github.com/newrelic/node-newrelic/pull/3594)) ([f42a501](https://github.com/newrelic/node-newrelic/commit/f42a501defce8eb246d28d6218db4947aca5bedd))
+* Added instrumentation support for `iovalkey` ([#3612](https://github.com/newrelic/node-newrelic/pull/3612)) ([55f5d6e](https://github.com/newrelic/node-newrelic/commit/55f5d6e8f1c1278845c2ed2a06c4d1d600015bb0))
+* Added support for OTel span events ([#3600](https://github.com/newrelic/node-newrelic/pull/3600)) ([5b7c340](https://github.com/newrelic/node-newrelic/commit/5b7c34013aafd42d9f3e2b11eb31b86f1f4ea461))
+* Additional support for partial granularity traces (Not available for production use)
+  * Added `compact` type for partial granularity traces. ([#3608](https://github.com/newrelic/node-newrelic/pull/3608)) ([73b0381](https://github.com/newrelic/node-newrelic/commit/73b038107f2e1fb94e7e7586dcf1d392031eb272))
+  * Added core tracing supportability metrics ([#3610](https://github.com/newrelic/node-newrelic/pull/3610)) ([c465f4c](https://github.com/newrelic/node-newrelic/commit/c465f4c540599b0ded7eac1f27e12443b69d7a81))
+  * Updated metric names for full and partial traces to consolidate like values ([#3620](https://github.com/newrelic/node-newrelic/pull/3620)) ([b201338](https://github.com/newrelic/node-newrelic/commit/b20133825440876260998eda58eb94b04b864bb2))
+
+#### Bug fixes
+
+* Account for links added during transaction ([#3606](https://github.com/newrelic/node-newrelic/pull/3606)) ([488b678](https://github.com/newrelic/node-newrelic/commit/488b678278811af7eb6b941eed84e0dafdb86fd5))
+* Updated samplers to properly assign sampling decisions based on appropriate context ([#3641](https://github.com/newrelic/node-newrelic/pull/3641)) ([4bbdddf](https://github.com/newrelic/node-newrelic/commit/4bbdddf7ae845cf349f27cca895a32a748a8327a))
+* Updated `undici` instrumentation to track the active and parent segment as symbols on request to properly end active request ([#3619](https://github.com/newrelic/node-newrelic/pull/3619)) ([9baebe5](https://github.com/newrelic/node-newrelic/commit/9baebe5c6bccba3c69bda5f3f3195d24dce0065b))
+
+#### Code refactoring
+
+* Removed unused `distributed_tracing.in_process_spans.enabled` logic. Partial granularity tracing replaces it ([#3611](https://github.com/newrelic/node-newrelic/pull/3611)) ([1d5584e](https://github.com/newrelic/node-newrelic/commit/1d5584eacd98b484435e56af455070ed866d246d))
+* Updated `@langchain/core` instrumentation to subscribe to events emitted ([#3493](https://github.com/newrelic/node-newrelic/pull/3493)) ([d1e90e4](https://github.com/newrelic/node-newrelic/commit/d1e90e4d66ac03a07b572a94f58066f2c20e7f25))
+
+#### Documentation
+
+* Updated compatibility report ([#3635](https://github.com/newrelic/node-newrelic/pull/3635)) ([74ac737](https://github.com/newrelic/node-newrelic/commit/74ac737f90c9a84ddce1c0994a9ecf9665883a86))
+
+#### Miscellaneous chores
+
+* Changed `Langchain` to `LangChain`, expand version range ([#3629](https://github.com/newrelic/node-newrelic/pull/3629)) ([d77239e](https://github.com/newrelic/node-newrelic/commit/d77239edbff79bb4e73c58a814f7a7d272325e77))
+* Copy OTEL status metadata to segment ([#3613](https://github.com/newrelic/node-newrelic/pull/3613)) ([4057e80](https://github.com/newrelic/node-newrelic/commit/4057e804b74170ba58a0faf0bdeb934eafc4195d))
+* **deps:** Updated `@newrelic/security-agent` to `v3.0.0` ([#3637](https://github.com/newrelic/node-newrelic/pull/3637)) ([a84fa74](https://github.com/newrelic/node-newrelic/commit/a84fa742bbacb607a813de2a99d81113027178bc))
+* Don't create OpenAI segments if `ai_monitoring` is disabled ([#3625](https://github.com/newrelic/node-newrelic/pull/3625)) ([b4f0010](https://github.com/newrelic/node-newrelic/commit/b4f001033684937cbe886ca166d8c71a662b783d))
+* Limit number of span links on segments ([#3621](https://github.com/newrelic/node-newrelic/pull/3621)) ([c923c30](https://github.com/newrelic/node-newrelic/commit/c923c30a094af5f5e197f2e63f5dca652480f76d))
+* Updated Azure publishing with OIDC steps ([#3633](https://github.com/newrelic/node-newrelic/pull/3633)) ([14c41c0](https://github.com/newrelic/node-newrelic/commit/14c41c042847e823360965d815ebff7125973197))
+
+#### Tests
+
+* Centralized indices for `redis` versioned tests ([#3636](https://github.com/newrelic/node-newrelic/pull/3636)) ([34f6562](https://github.com/newrelic/node-newrelic/commit/34f6562f42c8a8fb02236cdff07832d8c0fb9562))
+* Changed `LangChain` tool test to `>=0.2.0` ([#3631](https://github.com/newrelic/node-newrelic/pull/3631)) ([3a4980f](https://github.com/newrelic/node-newrelic/commit/3a4980faf924a9a334d38e0a3ed73c6d4ad79b8b))
+* Fix `LangChain` test targets ([#3634](https://github.com/newrelic/node-newrelic/pull/3634)) ([6504eb8](https://github.com/newrelic/node-newrelic/commit/6504eb869dc11d9c94bc3bf862a0b6bd308ee01c))
+* Refactored `LangChain` versioned tests ([#3624](https://github.com/newrelic/node-newrelic/pull/3624)) ([12ae601](https://github.com/newrelic/node-newrelic/commit/12ae601befa72d16a9d1b9ca041b1fd825281c28))
+
 ### v13.8.1 (2025-12-15)
 
 #### Bug fixes
@@ -8143,6 +8299,10 @@ Special thanks to Ryan Copley (@RyanCopley) for the contribution.
 * The agent reports transaction trace data.
 
 [mdn-async-function]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/async_function
+
+
+
+
 
 
 

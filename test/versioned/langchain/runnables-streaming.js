@@ -49,9 +49,19 @@ function runStreamingEnabledTests(config) {
   } = config
 
   return async (t) => {
-    await t.test('should log tracking metrics', function(t) {
-      const { agent, langchainCoreVersion } = t.nr
-      assertPackageMetrics({ agent, pkg: '@langchain/core', version: langchainCoreVersion })
+    await t.test('should log tracking metrics', function(t, end) {
+      t.plan(5)
+      const { agent, langchainCoreVersion, prompt, model } = t.nr
+      helper.runInTransaction(agent, async () => {
+        await prompt.pipe(model).stream(inputData)
+        assertPackageMetrics({
+          agent,
+          pkg: '@langchain/core',
+          version: langchainCoreVersion,
+          subscriberType: true
+        }, { assert: t.assert })
+        end()
+      })
     })
 
     await t.test('should create langchain events for every stream call', (t, end) => {
@@ -79,8 +89,13 @@ function runStreamingEnabledTests(config) {
           const [, chainEvent] = event
           return chainEvent.vendor === 'langchain'
         })
-
         assert.equal(langchainEvents.length, 3, 'should create 3 langchain events')
+
+        const requestMsg = langchainEvents.filter((msg) => msg[1].is_response === false)[0]
+        assert.equal(requestMsg[0].timestamp, requestMsg[1].timestamp, 'time added to event aggregator should equal `timestamp` property')
+
+        const chatSummary = langchainEvents.filter(([{ type }]) => type === 'LlmChatCompletionSummary')[0]
+        assert.equal(chatSummary[0].timestamp, chatSummary[1].timestamp, 'time added to event aggregator should equal `timestamp` property')
 
         tx.end()
         end()
@@ -104,7 +119,7 @@ function runStreamingEnabledTests(config) {
           const metrics = agent.metrics.getOrCreateMetric(
             `Supportability/Nodejs/ML/LangChain/${langchainCoreVersion}`
           )
-          assert.equal(metrics.callCount > 0, true)
+          assert.equal(metrics.callCount, 1)
 
           tx.end()
           end()
@@ -230,8 +245,9 @@ function runStreamingEnabledTests(config) {
           const stream = await chain.stream(input, options)
           let content = ''
           for await (const chunk of stream) {
-            content += chunk
+            content += chunk?.[0]
           }
+          assert(content.length > 0, 'there should be content in the response')
 
           const events = agent.customEventAggregator.events.toArray()
 
@@ -650,7 +666,7 @@ function runStreamingDisabledTest(config) {
           const metrics = agent.metrics.getOrCreateMetric(
             `Supportability/Nodejs/ML/LangChain/${langchainCoreVersion}`
           )
-          assert.equal(metrics.callCount > 0, true)
+          assert.equal(metrics.callCount, 1)
           const attributes = tx.trace.attributes.get(DESTINATIONS.TRANS_EVENT)
           assert.equal(attributes.llm, true)
           const streamingDisabled = agent.metrics.getOrCreateMetric(
@@ -669,10 +685,10 @@ function runStreamingDisabledTest(config) {
     )
 
     await t.test(
-      'should not create segment when `ai_monitoring.streaming.enabled` is false',
+      'should still create segment when `ai_monitoring.streaming.enabled` is false',
       (t, end) => {
         const { agent, prompt, outputParser, model } = t.nr
-        agent.config.ai_monitoring.enabled = false
+        agent.config.ai_monitoring.streaming.enabled = false
 
         helper.runInTransaction(agent, async (tx) => {
           const input = inputData
@@ -684,7 +700,7 @@ function runStreamingDisabledTest(config) {
           }
 
           const segment = findSegment(tx.trace, tx.trace.root, 'Llm/chain/LangChain/stream')
-          assert.equal(segment, undefined, 'should not create Llm/chain/LangChain/stream segment when ai_monitoring is disabled')
+          assert.ok(segment, 'should still create Llm/chain/LangChain/stream segment when ai_monitoring.streaming is disabled')
 
           tx.end()
           end()

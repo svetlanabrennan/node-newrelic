@@ -43,7 +43,10 @@ test.beforeEach((ctx) => {
   }
 
   ctx.nr.segment = {
-    id: 'segment-1'
+    id: 'segment-1',
+    timer: {
+      start: 1768511347385
+    }
   }
 
   ctx.nr.runId = 'run-1'
@@ -54,7 +57,8 @@ test('creates entity', async (t) => {
   const msg = new LangChainCompletionMessage({
     ...t.nr,
     sequence: 1,
-    content: 'hello world'
+    content: 'hello world',
+    isResponse: true
   })
   assert.equal(msg.id, 'run-1-1')
   assert.equal(msg.appName, 'test-app')
@@ -67,8 +71,31 @@ test('creates entity', async (t) => {
   assert.equal(msg.vendor, 'langchain')
   assert.equal(msg.virtual_llm, true)
   assert.equal(msg.sequence, 1)
+  assert.equal(msg.role, 'assistant', 'should assume assistant role based on isResponse=true')
   assert.equal(msg.content, 'hello world')
   assert.match(msg.completion_id, /[a-z0-9-]{36}/)
+  assert.equal(msg.timestamp, undefined, 'should not have a timestamp defined if isResponse=true')
+})
+
+test('assigns role if given', async(t) => {
+  const msg = new LangChainCompletionMessage({
+    ...t.nr,
+    sequence: 1,
+    content: 'hello world',
+    role: 'system'
+  })
+  assert.equal(msg.role, 'system')
+})
+
+test('assigns role and timestamp correctly if isResponse is false', async(t) => {
+  const msg = new LangChainCompletionMessage({
+    ...t.nr,
+    sequence: 0,
+    content: 'hello world',
+    isResponse: false
+  })
+  assert.equal(msg.role, 'user', 'role should be user')
+  assert.equal(msg.timestamp, t.nr.segment.timer.start, 'should have a timestamp defined if isResponse=false')
 })
 
 test('assigns id correctly', async (t) => {

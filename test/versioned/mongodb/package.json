@@ -1,11 +1,16 @@
 {
   "name": "mongodb-tests",
-  "targets": [{"name":"mongodb","minAgentVersion":"1.32.0"}],
+  "comment": "Only tests promise based instrumentation. Callback based instrumentation is tested for v4 of mongodb in `test/version/mongodb-esm` folder",
+  "targets": [
+    {
+      "name": "mongodb",
+      "minAgentVersion": "1.32.0"
+    }
+  ],
   "version": "0.0.0",
   "private": true,
   "tests": [
     {
-      "comment": "Only tests promise based instrumentation. Callback based instrumentation is tested for v4 of mongodb in `test/version/mongodb-esm` folder",
       "engines": {
         "node": ">=20"
       },

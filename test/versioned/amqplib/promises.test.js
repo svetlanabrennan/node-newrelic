@@ -55,7 +55,7 @@ test('amqplib promise instrumentation', async function (t) {
 
   await t.test('should log tracking metrics', function(t) {
     const { agent } = t.nr
-    assertPackageMetrics({ agent, pkg: 'amqplib', version })
+    assertPackageMetrics({ agent, pkg: 'amqplib', version, subscriberType: true })
   })
 
   await t.test('connect in a transaction', async function (t) {
@@ -457,6 +457,7 @@ test('amqplib promise instrumentation', async function (t) {
     process.nextTick(() => {
       amqpUtils.verifyConsumeTransaction(tx, amqpUtils.DIRECT_EXCHANGE, queue, 'consume-tx-key')
       assert.ok(tx.trace.getDurationInMillis() >= PROMISE_WAIT, 'transaction should account for async work')
+      assert.ok(tx.baseSegment.getDurationInMillis() >= PROMISE_WAIT, 'base segment should account for async work')
     })
   })
 

@@ -13,6 +13,7 @@ const { removeModules } = require('../../lib/cache-buster')
 const { assertSegments, assertSpanKind, match } = require('../../lib/custom-assertions')
 const createOpenAIMockServer = require('./mock-server-res-api')
 const helper = require('../../lib/agent_helper')
+const { findSegment } = require('../../lib/metrics_helper')
 
 const {
   AI: { OPENAI }
@@ -141,9 +142,12 @@ test('responses.create', async (t) => {
         resContent: '1 plus 2 is 3.',
         reqContent: content
       })
+      const requestMsg = chatMsgs.filter((msg) => msg[1].is_response === false)[0]
+      assert.equal(requestMsg[0].timestamp, requestMsg[1].timestamp, 'time added to event aggregator should equal `timestamp` property')
 
       const chatSummary = events.filter(([{ type }]) => type === 'LlmChatCompletionSummary')[0]
       assertChatCompletionSummary({ tx, model, chatSummary })
+      assert.equal(chatSummary[0].timestamp, chatSummary[1].timestamp, 'time added to event aggregator should equal `timestamp` property')
 
       tx.end()
       end()
@@ -202,8 +206,7 @@ test('responses.create', async (t) => {
       const events = agent.customEventAggregator.events.toArray()
       assert.equal(events.length, 0, 'should not create llm events when ai_monitoring is disabled')
 
-      const children = tx.trace.segments.root.children
-      assert.equal(children.length, 0, 'should not create OpenAI completion segment')
+      assert.ok(!findSegment(tx.trace, tx.trace.root, OPENAI.COMPLETION))
 
       tx.end()
       end()
@@ -241,6 +244,7 @@ test('responses.create', async (t) => {
       const summary = agent.customEventAggregator.events.toArray().find((e) => e[0].type === 'LlmChatCompletionSummary')
       assert.ok(summary)
       assert.equal(summary[1].error, true)
+      assert.equal(summary[1].request_id, 'req_f3b1353d6a35554bcc6d6e0cbf07ad4b')
 
       tx.end()
       end()

@@ -36,14 +36,24 @@ function runRunnablesTests(config) {
     expectedInput,
     expectedOutput,
     errorPromptTemplate,
-    errorEventCount = 6,
+    errorEventCount = 5,
     errorAssertion,
     arrayParserOutput
   } = config
 
-  test('should log tracking metrics', function(t) {
-    const { agent, langchainCoreVersion } = t.nr
-    assertPackageMetrics({ agent, pkg: '@langchain/core', version: langchainCoreVersion })
+  test('should log tracking metrics', function(t, end) {
+    t.plan(5)
+    const { agent, langchainCoreVersion, model, prompt } = t.nr
+    helper.runInTransaction(agent, async () => {
+      await prompt.pipe(model).invoke(inputData)
+      assertPackageMetrics({
+        agent,
+        pkg: '@langchain/core',
+        version: langchainCoreVersion,
+        subscriberType: true
+      }, { assert: t.assert })
+      end()
+    })
   })
 
   test('should create langchain events for every invoke call', (t, end) => {
@@ -63,8 +73,13 @@ function runRunnablesTests(config) {
         const [, chainEvent] = event
         return chainEvent.vendor === 'langchain'
       })
-
       assert.equal(langchainEvents.length, 3, 'should create 3 langchain events')
+
+      const requestMsg = langchainEvents.filter((msg) => msg[1].is_response === false)[0]
+      assert.equal(requestMsg[0].timestamp, requestMsg[1].timestamp, 'time added to event aggregator should equal `timestamp` property')
+
+      const chatSummary = langchainEvents.filter(([{ type }]) => type === 'LlmChatCompletionSummary')[0]
+      assert.equal(chatSummary[0].timestamp, chatSummary[1].timestamp, 'time added to event aggregator should equal `timestamp` property')
 
       tx.end()
       end()
@@ -84,7 +99,7 @@ function runRunnablesTests(config) {
       const metrics = agent.metrics.getOrCreateMetric(
         `Supportability/Nodejs/ML/LangChain/${langchainCoreVersion}`
       )
-      assert.equal(metrics.callCount > 0, true)
+      assert.equal(metrics.callCount, 1)
 
       tx.end()
       end()
@@ -445,7 +460,7 @@ function runRunnablesTests(config) {
         const [, chainEvent] = event
         return chainEvent.vendor === 'langchain'
       })
-      assert.equal(langchainEvents.length, 3, 'should create 3 langchain events')
+      assert.equal(langchainEvents.length, 2, 'should create 2 langchain events')
       const summary = langchainEvents.find((e) => e[0].type === 'LlmChatCompletionSummary')?.[1]
       assert.equal(summary.error, true)
 
