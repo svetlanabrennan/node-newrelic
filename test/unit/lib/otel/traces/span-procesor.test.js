@@ -321,7 +321,7 @@ test('reconcileEvents logs `Supportability/Nodejs/SpanEvent/Links/Dropped` when 
     const { segment } = span[otelSynthesis]
     processor.reconcileEvents({ segment, span })
     t.assert.equal(agent.metrics._metrics.unscoped['Supportability/Nodejs/SpanEvent/Events/Dropped'].callCount, 5)
-    t.assert.equal(segment.timedEvents.length, 100)
+    t.assert.equal(segment.spanEvents.length, 100)
     tx.end()
   })
 })

@@ -16,7 +16,7 @@ const Segment = require('../../../../lib/transaction/trace/segment')
 const DTPayload = require('../../../../lib/transaction/dt-payload')
 const Trace = require('../../../../lib/transaction/trace')
 const Transaction = require('../../../../lib/transaction')
-const { assertSpanEvent, addSegment, addTwoSegments, makeTrace, addBaseSegment, setupPartialTrace } = require('./helpers')
+const { assertSpan, addSegment, addTwoSegments, makeTrace, addBaseSegment, setupPartialTrace } = require('./helpers')
 
 const NEWRELIC_TRACE_HEADER = 'newrelic'
 
@@ -114,8 +114,8 @@ test('Trace', async (t) => {
     const events = agent.spanAggregator.getEvents()
     const nested = events[0]
     const testSpan = events[1]
-    assertSpanEvent({ span: nested, transaction, name: 'span', category: 'generic', parentId: testSpan.intrinsics.guid })
-    assertSpanEvent({ span: testSpan, transaction, name: 'test', category: 'generic', isEntry: true })
+    assertSpan({ span: nested, transaction, name: 'span', category: 'generic', parentId: testSpan.intrinsics.guid })
+    assertSpan({ span: testSpan, transaction, name: 'test', category: 'generic', isEntry: true })
   })
 
   await t.test('should generate span events and finalize when partial trace reduced', (t) => {
@@ -124,11 +124,11 @@ test('Trace', async (t) => {
     assert.equal(agent.spanAggregator.events.length, 3)
     const [redisSet, testSpan, redisGet] = agent.spanAggregator.getEvents()
     const attributes = { foo: 'bar', 'server.address': 'unit-test', 'peer.hostname': 'unit-test' }
-    assertSpanEvent({ span: testSpan, transaction, name: 'test', category: 'generic', isEntry: true })
+    assertSpan({ span: testSpan, transaction, name: 'test', category: 'generic', isEntry: true })
     // its parent was dropped, so parentId is `child1` aka testSpan
-    assertSpanEvent({ span: redisGet, transaction, name: 'Datastore/operation/Redis/GET', category: 'datastore', parentId: testSpan.intrinsics.guid, attributes })
+    assertSpan({ span: redisGet, transaction, name: 'Datastore/operation/Redis/GET', category: 'datastore', parentId: testSpan.intrinsics.guid, attributes })
     // its parent and grandparent were dropped, so parentId is `child3` aka redisGet
-    assertSpanEvent({ span: redisSet, transaction, name: 'Datastore/operation/Redis/SET', category: 'datastore', parentId: redisGet.intrinsics.guid, attributes })
+    assertSpan({ span: redisSet, transaction, name: 'Datastore/operation/Redis/SET', category: 'datastore', parentId: redisGet.intrinsics.guid, attributes })
     assert.ok(!redisGet.intrinsics['nr.durations'])
     assert.ok(!redisGet.intrinsics['nr.ids'])
   })
@@ -140,11 +140,11 @@ test('Trace', async (t) => {
     const [redisSet, testSpan, redisGet] = agent.spanAggregator.getEvents()
     // drops non entity relationship attributes
     const attributes = { 'server.address': 'unit-test', 'peer.hostname': 'unit-test' }
-    assertSpanEvent({ span: testSpan, transaction, name: 'test', category: 'generic', isEntry: true })
+    assertSpan({ span: testSpan, transaction, name: 'test', category: 'generic', isEntry: true })
     // its parent was dropped, so parentId is `child1` aka testSpan
-    assertSpanEvent({ span: redisGet, transaction, name: 'Datastore/operation/Redis/GET', category: 'datastore', parentId: testSpan.intrinsics.guid, attributes })
+    assertSpan({ span: redisGet, transaction, name: 'Datastore/operation/Redis/GET', category: 'datastore', parentId: testSpan.intrinsics.guid, attributes })
     // its parent and grandparent were dropped, so parentId is `child3` aka redisGet
-    assertSpanEvent({ span: redisSet, transaction, name: 'Datastore/operation/Redis/SET', category: 'datastore', parentId: redisGet.intrinsics.guid, attributes })
+    assertSpan({ span: redisSet, transaction, name: 'Datastore/operation/Redis/SET', category: 'datastore', parentId: redisGet.intrinsics.guid, attributes })
     assert.ok(!redisGet.intrinsics['nr.durations'])
     assert.ok(!redisGet.intrinsics['nr.ids'])
   })
@@ -156,9 +156,9 @@ test('Trace', async (t) => {
     const [redisGet, testSpan] = agent.spanAggregator.getEvents()
     // drops non entity relationship attributes
     const attributes = { 'server.address': 'unit-test', 'peer.hostname': 'unit-test' }
-    assertSpanEvent({ span: testSpan, transaction, name: 'test', category: 'generic', isEntry: true })
+    assertSpan({ span: testSpan, transaction, name: 'test', category: 'generic', isEntry: true })
     // its parent was dropped, so parentId is `child1` aka testSpan
-    assertSpanEvent({ span: redisGet, transaction, name: 'Datastore/operation/Redis/GET', category: 'datastore', parentId: testSpan.intrinsics.guid, attributes })
+    assertSpan({ span: redisGet, transaction, name: 'Datastore/operation/Redis/GET', category: 'datastore', parentId: testSpan.intrinsics.guid, attributes })
     // explicit assertions of these values are done in `applyCompaction` tests below
     assert.ok(redisGet.intrinsics['nr.durations'])
     assert.ok(redisGet.intrinsics['nr.ids'])
@@ -171,10 +171,10 @@ test('Trace', async (t) => {
     assert.equal(agent.spanAggregator.events.length, 2)
     const [redisGet, testSpan] = agent.spanAggregator.getEvents()
     // drops non entity relationship attributes
-    assertSpanEvent({ span: testSpan, transaction, name: 'test', category: 'generic', isEntry: true })
+    assertSpan({ span: testSpan, transaction, name: 'test', category: 'generic', isEntry: true })
     // its parent was dropped, so parentId is `child1` aka testSpan
     const finalAttrs = { 'server.address': 'unit-test', 'error.class': 'FinalClass', 'error.message': 'This should be the one', 'error.expected': false }
-    assertSpanEvent({ span: redisGet, transaction, name: 'Datastore/operation/Redis/GET', category: 'datastore', parentId: testSpan.intrinsics.guid, attributes: finalAttrs })
+    assertSpan({ span: redisGet, transaction, name: 'Datastore/operation/Redis/GET', category: 'datastore', parentId: testSpan.intrinsics.guid, attributes: finalAttrs })
     // explicit assertions of these values are done in `applyCompaction` tests below
     assert.ok(redisGet.intrinsics['nr.durations'])
     assert.ok(redisGet.intrinsics['nr.ids'])
@@ -252,7 +252,7 @@ test('Trace', async (t) => {
     child.end()
 
     // This should add the parent attributes onto a child span event
-    trace.generateSpanEvents()
+    trace.generateSpans()
 
     // Test that a child span event has the attributes
     const attrs = child.attributes.get(DESTINATIONS.SPAN_EVENT)
@@ -291,7 +291,7 @@ test('Trace', async (t) => {
     const child = addBaseSegment({ transaction, name: 'test' })
     child.end()
 
-    trace.generateSpanEvents()
+    trace.generateSpans()
 
     assert.deepEqual(child.attributes.get(DESTINATIONS.SPAN_EVENT), {
       'host.displayName': 'test-value'
@@ -956,7 +956,7 @@ test('infinite tracing', async (t) => {
 
     addTwoSegments(transaction)
 
-    transaction.trace.generateSpanEvents()
+    transaction.trace.generateSpans()
 
     assert.equal(spy.callCount, 2)
   })
@@ -975,7 +975,7 @@ test('infinite tracing', async (t) => {
 
       addTwoSegments(transaction)
 
-      transaction.trace.generateSpanEvents()
+      transaction.trace.generateSpans()
 
       assert.equal(spy.callCount, 0)
     }
@@ -989,7 +989,7 @@ test('infinite tracing', async (t) => {
 
     addTwoSegments(transaction)
 
-    transaction.trace.generateSpanEvents()
+    transaction.trace.generateSpans()
     assert.equal(addSpy.callCount, 0)
   })
 
@@ -1002,7 +1002,7 @@ test('infinite tracing', async (t) => {
 
     addTwoSegments(transaction)
 
-    transaction.trace.generateSpanEvents()
+    transaction.trace.generateSpans()
     assert.equal(addSpy.callCount, 0)
   })
 })
