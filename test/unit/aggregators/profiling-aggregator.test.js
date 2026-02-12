@@ -102,6 +102,7 @@ test('should stop ProfilingManager when aggregator is stopped', (t) => {
   profilingAggregator.profilingManager.profilers.set('CpuProfiler', cpuProfiler)
   profilingAggregator.profilingManager.profilers.set('HeapProfiler', heapProfiler)
   profilingAggregator.start()
+  profilingAggregator.profilingManager.profilers = [cpuProfiler, heapProfiler]
   assert.ok(profilingAggregator.sendTimer)
   for (const [, profiler] of profilingAggregator.profilingManager.profilers) {
     assert.equal(profiler.stop.callCount, 0)
