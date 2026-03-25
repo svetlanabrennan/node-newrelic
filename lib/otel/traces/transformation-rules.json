@@ -356,7 +356,7 @@
     }
   },
   {
-    "name": "OtelDbClientRedis1_24",
+    "name": "OtelDbClientRedis1_33",
     "type": "db",
     "matcher": {
       "required_span_kinds": [
@@ -389,7 +389,7 @@
       }
     ],
     "segment": {
-      "operation": "db.statement",
+      "operation": "db.query.text",
       "type": "db.system.name",
       "name": {
         "template": "Datastore/operation/${type}/${operation}"
@@ -397,7 +397,48 @@
     }
   },
   {
-    "name": "OtelDbClientMongo1_24",
+    "name": "OtelDbClientRedis1_24",
+    "type": "db",
+    "matcher": {
+      "required_span_kinds": [
+        "client"
+      ],
+      "required_attribute_keys": [
+        "db.system",
+        "server.address",
+        "server.port"
+      ],
+      "attribute_conditions": {
+        "db.system": ["redis", "memcached"]
+      }
+    },
+    "attributes": [
+      {
+        "key": "db.system",
+        "target": "segment",
+        "name": "product"
+      },
+      {
+        "key": "server.address",
+        "target": "segment",
+        "name": "host"
+      },
+      {
+        "key": "server.port",
+        "target": "segment",
+        "name": "port_path_or_id"
+      }
+    ],
+    "segment": {
+      "operation": "db.statement",
+      "type": "db.system",
+      "name": {
+        "template": "Datastore/operation/${type}/${operation}"
+      } 
+    }
+  },
+  {
+    "name": "OtelDbClientMongo1_33",
     "type": "db",
     "matcher": {
       "required_span_kinds": [
@@ -435,7 +476,7 @@
       }
     ],
     "segment": {
-      "operation": "db.operation",
+      "operation": "db.operation.name",
       "collection": "db.mongodb.collection",
       "type": "db.system.name",
       "name": {
@@ -444,7 +485,54 @@
     }
   },
   {
-    "name": "OtelDbClient1_24",
+    "name": "OtelDbClientMongo1_24",
+    "type": "db",
+    "matcher": {
+      "required_span_kinds": [
+        "client"
+      ],
+      "required_attribute_keys": [
+        "db.system",
+        "server.address",
+        "server.port"
+      ],
+      "attribute_conditions": {
+        "db.system": ["mongodb"]
+      }
+    },
+    "attributes": [
+      {
+        "key": "db.system",
+        "target": "segment",
+        "name": "product"
+      },
+      {
+        "key": "db.name",
+        "target": "segment",
+        "name": "database_name"
+      },
+      {
+        "key": "server.address",
+        "target": "segment",
+        "name": "host"
+      },
+      {
+        "key": "server.port",
+        "target": "segment",
+        "name": "port_path_or_id"
+      }
+    ],
+    "segment": {
+      "operation": "db.operation",
+      "collection": "db.mongodb.collection",
+      "type": "db.system",
+      "name": {
+        "template": "Datastore/statement/${type}/${collection}/${operation}"
+      } 
+    }
+  },
+  {
+    "name": "OtelDbClient1_33",
     "type": "db",
     "matcher": {
       "required_span_kinds": [
@@ -479,8 +567,51 @@
       }
     ],
     "segment": {
-      "statement": "db.statement",
+      "statement": "db.query.text",
       "type": "db.system.name",
+      "name": {
+        "template": "Datastore/statement/${type}/${collection}/${operation}"
+      } 
+    }
+  },
+  {
+    "name": "OtelDbClient1_24",
+    "type": "db",
+    "matcher": {
+      "required_span_kinds": [
+        "client"
+      ],
+      "required_attribute_keys": [
+        "db.system",
+        "server.address",
+        "server.port"
+      ]
+    },
+    "attributes": [
+      {
+        "key": "db.system",
+        "target": "segment",
+        "name": "product"
+      },
+      {
+        "key": "db.name",
+        "target": "segment",
+        "name": "database_name"
+      },
+      {
+        "key": "server.address",
+        "target": "segment",
+        "name": "host"
+      },
+      {
+        "key": "server.port",
+        "target": "segment",
+        "name": "port_path_or_id"
+      }
+    ],
+    "segment": {
+      "statement": "db.statement",
+      "type": "db.system",
       "name": {
         "template": "Datastore/statement/${type}/${collection}/${operation}"
       } 
@@ -494,22 +625,22 @@
         "client"
       ],
       "required_attribute_keys": [
-        "db.system.name",
+        "db.system",
         "net.peer.name",
         "net.peer.port"
       ],
       "attribute_conditions": {
-        "db.system.name": ["redis", "memcached"]
+        "db.system": ["redis", "memcached"]
       }
     },
     "attributes": [
       {
-        "key": "db.system.name",
+        "key": "db.system",
         "target": "segment",
         "name": "product"
       },
       {
-        "key": "db.namespace",
+        "key": "db.name",
         "target": "segment",
         "name": "database_name"
       },
@@ -526,7 +657,7 @@
     ],
     "segment": {
       "operation": "db.statement",
-      "type": "db.system.name",
+      "type": "db.system",
       "name": {
         "template": "Datastore/operation/${type}/${operation}"
       } 
@@ -540,22 +671,22 @@
         "client"
       ],
       "required_attribute_keys": [
-        "db.system.name",
+        "db.system",
         "net.peer.name",
         "net.peer.port"
       ],
       "attribute_conditions": {
-        "db.system.name": ["mongodb"]
+        "db.system": ["mongodb"]
       }
     },
     "attributes": [
       {
-        "key": "db.system.name",
+        "key": "db.system",
         "target": "segment",
         "name": "product"
       },
       {
-        "key": "db.namespace",
+        "key": "db.name",
         "target": "segment",
         "name": "database_name"
       },
@@ -573,14 +704,14 @@
     "segment": {
       "operation": "db.operation",
       "collection": "db.mongodb.collection",
-      "type": "db.system.name",
+      "type": "db.system",
       "name": {
         "template": "Datastore/statement/${type}/${collection}/${operation}"
       } 
     }
   },
   {
-    "name": "OtelDbClientDynamo1_17",
+    "name": "OtelDbClientDynamo1_33",
     "type": "db",
     "matcher": {
       "required_span_kinds": [
@@ -600,7 +731,51 @@
         "name": "product"
       },
       {
-        "key": "db.namespace",
+        "template": "dynamodb.${aws.region}.amazonaws.com",
+        "target": "segment",
+        "name": "host"
+      },
+      {
+        "value": "443",
+        "target": "segment",
+        "name": "port_path_or_id"
+      },
+      {
+        "template": "arn:aws:dynamodb:${aws.region}:${accountId}:table/${aws.dynamodb.table_names}",
+        "target": "segment",
+        "name": "cloud.resource_id"
+      }
+    ],
+    "segment": {
+      "operation": "db.operation.name",
+      "type": "db.system.name",
+      "name": {
+        "template": "Datastore/operation/${type}/${operation}"
+      } 
+    }
+  },
+  {
+    "name": "OtelDbClientDynamo1_17",
+    "type": "db",
+    "matcher": {
+      "required_span_kinds": [
+        "client"
+      ],
+      "required_attribute_keys": [
+        "db.system"
+      ],
+      "attribute_conditions": {
+        "db.system": ["dynamodb"]
+      }
+    },
+    "attributes": [
+      {
+        "key": "db.system",
+        "target": "segment",
+        "name": "product"
+      },
+      {
+        "key": "db.name",
         "target": "segment",
         "name": "database_name"
       },
@@ -622,7 +797,7 @@
     ],
     "segment": {
       "operation": "db.operation",
-      "type": "db.system.name",
+      "type": "db.system",
       "name": {
         "template": "Datastore/operation/${type}/${operation}"
       } 
@@ -636,19 +811,19 @@
         "client"
       ],
       "required_attribute_keys": [
-        "db.system.name",
+        "db.system",
         "net.peer.name",
         "net.peer.port"
       ]
     },
     "attributes": [
       {
-        "key": "db.system.name",
+        "key": "db.system",
         "target": "segment",
         "name": "product"
       },
       {
-        "key": "db.namespace",
+        "key": "db.name",
         "target": "segment",
         "name": "database_name"
       },
@@ -665,7 +840,7 @@
     ],
     "segment": {
       "statement": "db.statement",
-      "type": "db.system.name",
+      "type": "db.system",
       "name": {
         "template": "Datastore/statement/${type}/${collection}/${operation}"
       } 
