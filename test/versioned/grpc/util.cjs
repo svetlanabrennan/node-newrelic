@@ -34,6 +34,71 @@ function buildExpectedMetrics(port) {
 }
 
 /**
+ * Adds the transaction id and segment name from current context to the relevant
+ * phase of a request:
+ *  - client_cb - The callback of a grpc request
+ *  - client_stream_data - The data stream handler of grpc request
+ *  - client_stream_end - The end stream handler of grpc request
+ *  - cb - The callback of grpc server method
+ *  - stream_data - The data stream handler on grpc server method
+ *  - stream_end - The end stream handler on grpc server method
+ *
+ * @param {object} params params object
+ * @param {object} params.response grpc response
+ * @param {string} params.key phase of request
+ * @param {Context} params.ctx if passed in will use to get transaction id and segment name
+ */
+function addContextToResponse({ response, key, ctx }) {
+  response[key] = {
+    transaction_id: ctx?.transaction?.id,
+    segment_name: ctx?.segment?.name
+  }
+}
+
+/**
+ * Optionally adds context to client responses.
+ * @param {object} params params object
+ * @param {object} params.response grpc response
+ * @param {string} params.key phase of request
+ * @param {Context} params.agent if passed in wil get current context and add to response
+ */
+function addContextToClientResponse({ response, key, agent }) {
+  if (agent) {
+    const ctx = agent.tracer.getContext()
+    addContextToResponse({ response, key, ctx })
+  }
+}
+
+/**
+ * Asserts the transaction id and segment name from the context for a given phase of the request
+ *  - client_cb - The callback of a grpc request
+ *  - client_stream_data - The data stream handler of grpc request
+ *  - client_stream_end - The end stream handler of grpc request
+ *  - cb - The callback of grpc server method
+ *  - stream_data - The data stream handler on grpc server method
+ *  - stream_end - The end stream handler on grpc server method
+ *
+ * @param {object} params params object
+ * @param {object} params.response grpc response
+ * @param {string} params.key phase of request
+ * @param {string} params.txId expected transaction id
+ * @param {string} params.segmentName expected segment name
+ * @param {boolean} params.clientRequest if true, will assert the end of segment
+ * @param {object} [deps] optional dependencies
+ * @param {object} [deps.assert] the assert library to use
+ */
+util.assertContext = function assertContext({ response, key, txId, segmentName, clientRequest = false }, { assert = require('node:assert') } = {}) {
+  assert.equal(response[key].transaction_id, txId)
+  const actualSegmentName = response[key].segment_name
+  if (clientRequest) {
+    assert.ok(actualSegmentName.startsWith('External/'))
+    assert.ok(actualSegmentName.endsWith(segmentName))
+  } else {
+    assert.equal(actualSegmentName, segmentName)
+  }
+}
+
+/**
  * Iterates over all metrics created during a transaction and asserts no gRPC metrics were created
  *
  * @param {object} params params object
@@ -84,7 +149,7 @@ util.createServer = async function createServer(grpc, agent) {
   const credentials = grpc.ServerCredentials.createInsecure()
   // quick and dirty map to store metadata for a given gRPC call
   server.metadataMap = new Map()
-  const serverMethods = serverImpl(server, agent)
+  const serverMethods = serverImpl(server, agent, addContextToResponse)
   const proto = loadProtobufApi(grpc)
   server.addService(proto.Greeter.service, serverMethods)
   const port = await new Promise((resolve, reject) => {
@@ -254,15 +319,18 @@ util.assertDistributedTracing = function assertDistributedTracing(
  * @param {object} params.client gRPC client
  * @param {string} params.fnName gRPC method name
  * @param {*} params.payload payload to gRPC method
+ * @param {Agent} params.agent when passed in, will add context to client call
  * @returns {Promise}
  */
-util.makeUnaryRequest = function makeUnaryRequest({ client, fnName, payload }) {
+util.makeUnaryRequest = function makeUnaryRequest({ client, fnName, payload, agent }) {
   return new Promise((resolve, reject) => {
     client[fnName](payload, (err, response) => {
       if (err) {
         reject(err)
         return
       }
+
+      addContextToClientResponse({ agent, key: 'client_cb', response })
       resolve(response)
     })
   })
@@ -276,13 +344,15 @@ util.makeUnaryRequest = function makeUnaryRequest({ client, fnName, payload }) {
  * @param {string} params.fnName gRPC method name
  * @param {*} params.payload payload to gRPC method
  * @param {boolean} [params.endStream] defaults to true
+ * @param {Agent} params.agent when passed in, will add context to client call
  * @returns {Promise}
  */
 util.makeClientStreamingRequest = function makeClientStreamingRequest({
   client,
   fnName,
   payload,
-  endStream = true
+  endStream = true,
+  agent
 }) {
   return new Promise((resolve, reject) => {
     const call = client[fnName]((err, response) => {
@@ -291,6 +361,7 @@ util.makeClientStreamingRequest = function makeClientStreamingRequest({
         return
       }
 
+      addContextToClientResponse({ agent, key: 'client_cb', response })
       resolve(response)
     })
 
@@ -309,16 +380,23 @@ util.makeClientStreamingRequest = function makeClientStreamingRequest({
  * @param {object} params.client gRPC client
  * @param {string} params.fnName gRPC method name
  * @param {*} params.payload payload to gRPC method
+ * @param {Agent} params.agent when passed in, will add context to client call
  * @returns {Promise}
  */
-util.makeServerStreamingRequest = function makeServerStreamingRequest({ client, fnName, payload }) {
+util.makeServerStreamingRequest = function makeServerStreamingRequest({ client, fnName, payload, agent }) {
   return new Promise((resolve, reject) => {
     const serverData = []
     const call = client[fnName](payload)
     call.on('data', (response) => {
+      addContextToClientResponse({ agent, key: 'client_stream_data', response })
       serverData.push(response)
     })
     call.on('end', () => {
+      if (agent) {
+        const response = { message: 'end' }
+        addContextToClientResponse({ agent, key: 'client_stream_end', response })
+        serverData.push(response)
+      }
       resolve(serverData)
     })
     call.on('error', (err) => {
@@ -334,17 +412,24 @@ util.makeServerStreamingRequest = function makeServerStreamingRequest({ client, 
  * @param {object} params.client gRPC client
  * @param {string} params.fnName gRPC method name
  * @param {*} params.payload payload to gRPC method
+ * @param {Agent} params.agent when passed in, will add context to client call
  * @returns {Promise}
  */
-util.makeBidiStreamingRequest = function makeBidiStreamingRequest({ client, fnName, payload }) {
+util.makeBidiStreamingRequest = function makeBidiStreamingRequest({ client, fnName, payload, agent }) {
   return new Promise((resolve, reject) => {
     const serverData = []
     const call = client[fnName]()
     payload.forEach((data) => call.write(data))
     call.on('data', function (response) {
+      addContextToClientResponse({ agent, key: 'client_stream_data', response })
       serverData.push(response)
     })
     call.on('end', () => {
+      if (agent) {
+        const response = { message: 'end' }
+        addContextToClientResponse({ agent, key: 'client_stream_end', response })
+        serverData.push(response)
+      }
       resolve(serverData)
     })
     call.on('error', (err) => {
