@@ -19,9 +19,12 @@ const { DESTINATIONS } = require('../../../lib/transaction')
 const {
   ATTR_AWS_REGION,
   ATTR_DB_NAME,
+  ATTR_DB_NAMESPACE,
   ATTR_DB_OPERATION,
   ATTR_DB_STATEMENT,
   ATTR_DB_SYSTEM,
+  ATTR_DB_SYSTEM_NAME,
+  ATTR_DB_QUERY_TEXT,
   ATTR_DYNAMO_TABLE_NAMES,
   ATTR_GRPC_STATUS_CODE,
   ATTR_FAAS_INVOKED_PROVIDER,
@@ -428,9 +431,9 @@ test('fallback client is bridged accordingly', (t, end) => {
 test('client span(db) is bridge accordingly(statement test)', (t, end) => {
   const { agent, tracer } = t.nr
   const attributes = {
-    [ATTR_DB_NAME]: 'test-db',
-    [ATTR_DB_SYSTEM]: 'postgresql',
-    [ATTR_DB_STATEMENT]: "select foo from test where foo = 'bar';",
+    [ATTR_DB_NAMESPACE]: 'test-db',
+    [ATTR_DB_SYSTEM_NAME]: 'postgresql',
+    [ATTR_DB_QUERY_TEXT]: "select foo from test where foo = 'bar';",
     [ATTR_SERVER_PORT]: 5436,
     [ATTR_SERVER_ADDRESS]: '127.0.0.1'
   }
@@ -1160,7 +1163,7 @@ test('Span errors are not added on transaction when span status code is not erro
 test('aws dynamodb span has correct entity linking attributes', (t, end) => {
   const { agent, tracer } = t.nr
   const attributes = {
-    [ATTR_DB_NAME]: 'test-db',
+    [ATTR_DB_NAMESPACE]: 'test-db',
     [ATTR_DB_SYSTEM]: DB_SYSTEM_VALUES.DYNAMODB,
     [ATTR_DB_OPERATION]: 'getItem',
     [ATTR_AWS_REGION]: 'us-east-1',
