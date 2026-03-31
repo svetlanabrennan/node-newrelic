@@ -11,7 +11,7 @@ const {
   BedrockCommand,
   BedrockResponse,
 } = require('#agentlib/llm-events/aws-bedrock/index.js')
-const StreamHandler = require('#agentlib/instrumentation/aws-sdk/v3/stream-handler.js')
+const StreamHandler = require('#agentlib/subscribers/aws-sdk/middleware/bedrock/stream-handler.js')
 
 test.beforeEach((ctx) => {
   ctx.nr = {}
