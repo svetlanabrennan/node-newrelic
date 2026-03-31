@@ -429,7 +429,7 @@ test('fallback client is bridged accordingly', (t, end) => {
   })
 })
 
-test('client span(db) 1.33 is bridge accordingly(query text test)', (t, end) => {
+test('client span(db) 1.38 is bridge accordingly(query text test)', (t, end) => {
   const { agent, tracer } = t.nr
   const attributes = {
     [ATTR_DB_NAMESPACE]: 'test-db',
@@ -629,7 +629,7 @@ test('client span(db) 1.17 is bridged accordingly(operation test)', (t, end) => 
   })
 })
 
-test('client span(db) 1.33 mongodb is bridged accordingly(operation test)', (t, end) => {
+test('client span(db) 1.38 mongodb is bridged accordingly(operation test)', (t, end) => {
   const { agent, tracer } = t.nr
   const attributes = {
     [ATTR_DB_SYSTEM_NAME]: DB_SYSTEM_VALUES.MONGODB,
