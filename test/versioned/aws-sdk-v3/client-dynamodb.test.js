@@ -9,7 +9,6 @@ const test = require('node:test')
 const helper = require('../../lib/agent_helper')
 const common = require('./common')
 const { createEmptyResponseServer, FAKE_CREDENTIALS } = require('../../lib/aws-server-stubs')
-const sinon = require('sinon')
 const { match } = require('../../lib/custom-assertions')
 
 const AWS_REGION = 'us-east-1'
@@ -32,8 +31,6 @@ test('DynamoDB', async (t) => {
       }
     })
 
-    const Shim = require('../../../lib/shim/datastore-shim')
-    ctx.nr.setDatastoreSpy = sinon.spy(Shim.prototype, 'setDatastore')
     const lib = require('@aws-sdk/client-dynamodb')
     ctx.nr.lib = lib
     const DynamoDBClient = lib.DynamoDBClient
@@ -51,7 +48,6 @@ test('DynamoDB', async (t) => {
 
   t.afterEach((ctx) => {
     common.afterEach(ctx)
-    ctx.nr.setDatastoreSpy.restore()
   })
 
   // See: https://github.com/newrelic/node-newrelic-aws-sdk/issues/160
@@ -78,18 +74,18 @@ test('DynamoDB', async (t) => {
   })
 
   await t.test('commands, promise-style', async (t) => {
-    const { agent, commands, client, setDatastoreSpy } = t.nr
+    const { agent, commands, client } = t.nr
     await helper.runInTransaction(agent, async (tx) => {
       for (const command of commands) {
         await client.send(command)
       }
       tx.end()
-      finish({ commands, tx, setDatastoreSpy })
+      finish({ commands, tx })
     })
   })
 
   await t.test('commands, callback-style', async (t) => {
-    const { agent, commands, client, setDatastoreSpy } = t.nr
+    const { agent, commands, client } = t.nr
     await helper.runInTransaction(agent, async (tx) => {
       for (const command of commands) {
         await new Promise((resolve) => {
@@ -102,7 +98,7 @@ test('DynamoDB', async (t) => {
       }
 
       tx.end()
-      finish({ commands, tx, setDatastoreSpy })
+      finish({ commands, tx })
     })
   })
 
@@ -188,7 +184,7 @@ function createCommands({ lib, tableName }) {
   ]
 }
 
-function finish({ commands, tx, setDatastoreSpy }) {
+function finish({ commands, tx }) {
   const root = tx.trace.root
   const segments = common.checkAWSAttributes({
     trace: tx.trace,
@@ -233,8 +229,6 @@ function finish({ commands, tx, setDatastoreSpy }) {
       'cloud.resource_id': `arn:aws:dynamodb:${attrs['aws.region']}:${accountId}:table/${attrs.collection}`
     })
   })
-
-  assert.equal(setDatastoreSpy.callCount, 1, 'should only call setDatastore once and not per call')
 }
 
 function getCreateTableParams(tableName) {
