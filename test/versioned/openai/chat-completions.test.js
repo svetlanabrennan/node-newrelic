@@ -457,21 +457,19 @@ test('chat.completions.create', async (t) => {
           assertChatCompletionSummary({ tx, model, chatSummary, error: true })
           if (semver.gte(pkgVersion, '5.0.0')) {
             assert.equal(tx.exceptions.length, 2)
-            // only asserting message and completion_id as the rest of the attrs
-            // are asserted in other tests
             match(tx.exceptions[1], {
               customAttributes: {
-                'error.message': /terminated|Premature close/,
+                'error.message': /terminated/,
+                'error.code': 'UND_ERR_SOCKET',
                 completion_id: /\w{32}/
               }
             })
           } else {
             assert.equal(tx.exceptions.length, 1)
-            // only asserting message and completion_id as the rest of the attrs
-            // are asserted in other tests
             match(tx.exceptions[0], {
               customAttributes: {
-                'error.message': /terminated|Premature close/,
+                'error.message': /Premature close/,
+                'error.code': 'ERR_STREAM_PREMATURE_CLOSE',
                 completion_id: /\w{32}/
               }
             })

@@ -5,8 +5,7 @@
 
 const test = require('node:test')
 const assert = require('node:assert')
-const LlmErrorMessage = require('#agentlib/llm-events/error-message.js')
-const { req } = require('./common')
+const GoogleGenAiLlmErrorMessage = require('#agentlib/llm-events/google-genai/error-message.js')
 
 test('LlmErrorMessage - cause message ok', async () => {
   // Responses are empty when there is an error
@@ -16,8 +15,7 @@ test('LlmErrorMessage - cause message ok', async () => {
     name: 'ServerError',
     message: 'got status: INTERNAL. {"error":{"status":"INTERNAL","code":500,"message":"some error"}}'
   }
-  const summary = { vendor: 'gemini' }
-  const errorMsg = new LlmErrorMessage({ request: req, response: res, cause, summary })
+  const errorMsg = new GoogleGenAiLlmErrorMessage({ response: res, cause })
   const expected = {
     'http.statusCode': 500,
     'error.message': 'got status: INTERNAL. {"error":{"status":"INTERNAL","code":500,"message":"some error"}}',
@@ -47,25 +45,14 @@ test('LlmErrorMessage - cause message invalid json', async () => {
     name: 'ServerError',
     message: '{bad:"json"'
   }
-  const summary = { vendor: 'gemini' }
-  const errorMsg = new LlmErrorMessage({ request: req, response: res, cause, summary })
-  const expected = {
-    'http.statusCode': undefined,
-    'error.message': '{bad:"json"',
-    'error.code': undefined,
-    'error.param': undefined,
-    completion_id: undefined,
-    embedding_id: undefined,
-    vector_store_id: undefined,
-    tool_id: undefined
-  }
+  const errorMsg = new GoogleGenAiLlmErrorMessage({ response: res, cause })
   assert.ok(errorMsg.toString(), 'LlmErrorMessage')
-  assert.equal(errorMsg['http.statusCode'], expected['http.statusCode'])
-  assert.equal(errorMsg['error.message'], expected['error.message'])
-  assert.equal(errorMsg['error.code'], expected['error.code'])
-  assert.equal(errorMsg['error.param'], expected['error.param'])
-  assert.equal(errorMsg.completion_id, expected.completion_id)
-  assert.equal(errorMsg.embedding_id, expected.embedding_id)
-  assert.equal(errorMsg.vector_store_id, expected.vector_store_id)
-  assert.equal(errorMsg.tool_id, expected.tool_id)
+  assert.equal(errorMsg['http.statusCode'], undefined)
+  assert.match(errorMsg['error.message'], /^failed to parse cause.message: .+/)
+  assert.equal(errorMsg['error.code'], undefined)
+  assert.equal(errorMsg['error.param'], undefined)
+  assert.equal(errorMsg.completion_id, undefined)
+  assert.equal(errorMsg.embedding_id, undefined)
+  assert.equal(errorMsg.vector_store_id, undefined)
+  assert.equal(errorMsg.tool_id, undefined)
 })

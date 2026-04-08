@@ -506,11 +506,11 @@ test('responses.create', async (t) => {
         const chatSummary = events.filter(([{ type }]) => type === 'LlmChatCompletionSummary')[0]
         assertChatCompletionSummary({ tx, model, chatSummary, error: true })
         assert.equal(tx.exceptions.length, 1)
-        // only asserting message and completion_id as the rest of the attrs
-        // are asserted in other tests
         match(tx.exceptions[0], {
           customAttributes: {
             'error.message': /500 fetch failed/,
+            'error.code': 500,
+            'http.statusCode': 500,
             completion_id: /\w{32}/
           }
         })
