@@ -11,7 +11,7 @@ const createSpan = require('./span')
 const {
   ATTR_NET_PEER_NAME,
   ATTR_NET_PEER_PORT,
-  ATTR_MONGODB_COLLECTION,
+  ATTR_DB_COLLECTION_NAME,
   ATTR_SERVER_ADDRESS,
   ATTR_SERVER_PORT,
   ATTR_DB_OPERATION_NAME,
@@ -52,7 +52,7 @@ function createMongoDbSpan({ tracer, name = 'test-span' }) {
   const span = createSpan({ name, kind: SpanKind.CLIENT, tracer })
   span.setAttribute(ATTR_DB_SYSTEM_NAME, DB_SYSTEM_VALUES.MONGODB)
   span.setAttribute(ATTR_DB_OPERATION_NAME, 'insert')
-  span.setAttribute(ATTR_MONGODB_COLLECTION, 'test-collection')
+  span.setAttribute(ATTR_DB_COLLECTION_NAME, 'test-collection')
   span.setAttribute(ATTR_SERVER_ADDRESS, 'mongo.example.com')
   span.setAttribute(ATTR_SERVER_PORT, '27017')
   return span

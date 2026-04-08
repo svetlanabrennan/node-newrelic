@@ -477,7 +477,7 @@
     ],
     "segment": {
       "operation": "db.operation.name",
-      "collection": "db.mongodb.collection",
+      "collection": "db.collection.name",
       "type": "db.system.name",
       "name": {
         "template": "Datastore/statement/${type}/${collection}/${operation}"
