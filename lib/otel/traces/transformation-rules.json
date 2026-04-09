@@ -356,7 +356,7 @@
     }
   },
   {
-    "name": "OtelDbClientRedis1_38",
+    "name": "OtelDbClientRedis1_40",
     "type": "db",
     "matcher": {
       "required_span_kinds": [
@@ -438,7 +438,7 @@
     }
   },
   {
-    "name": "OtelDbClientMongo1_38",
+    "name": "OtelDbClientMongo1_40",
     "type": "db",
     "matcher": {
       "required_span_kinds": [
@@ -532,7 +532,7 @@
     }
   },
   {
-    "name": "OtelDbClient1_38",
+    "name": "OtelDbClient1_40",
     "type": "db",
     "matcher": {
       "required_span_kinds": [
@@ -711,7 +711,7 @@
     }
   },
   {
-    "name": "OtelDbClientDynamo1_38",
+    "name": "OtelDbClientDynamo1_40",
     "type": "db",
     "matcher": {
       "required_span_kinds": [
