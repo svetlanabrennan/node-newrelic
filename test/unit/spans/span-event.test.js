@@ -333,7 +333,7 @@ test('fromSegment()', async (t) => {
         assert.equal(attributes['db.collection'], 'my-collection')
         assert.equal(attributes['peer.hostname'], 'my-db-host')
         assert.equal(attributes['peer.address'], 'my-db-host:/path/to/db.sock')
-        assert.equal(attributes['db.system.name'], 'TestStore') // same as intrinsics.component
+        assert.equal(attributes['db.system'], 'TestStore') // same as intrinsics.component
         assert.equal(attributes['server.address'], 'my-db-host')
         assert.equal(attributes['server.port'], '/path/to/db.sock')
 
