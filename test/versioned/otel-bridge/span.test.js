@@ -22,6 +22,7 @@ const {
   ATTR_DB_NAMESPACE,
   ATTR_DB_OPERATION,
   ATTR_DB_OPERATION_NAME,
+  ATTR_DB_COLLECTION_NAME,
   ATTR_DB_STATEMENT,
   ATTR_DB_SYSTEM,
   ATTR_DB_SYSTEM_NAME,
@@ -634,7 +635,7 @@ test('client span(db) 1.38 mongodb is bridged accordingly(operation test)', (t, 
   const attributes = {
     [ATTR_DB_SYSTEM_NAME]: DB_SYSTEM_VALUES.MONGODB,
     [ATTR_DB_NAMESPACE]: 'test-db',
-    [ATTR_MONGODB_COLLECTION]: 'test-collection',
+    [ATTR_DB_COLLECTION_NAME]: 'test-collection',
     [ATTR_DB_OPERATION_NAME]: 'findOne',
     [ATTR_SERVER_PORT]: 5436,
     [ATTR_SERVER_ADDRESS]: '127.0.0.1'
