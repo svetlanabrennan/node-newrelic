@@ -11,21 +11,23 @@ const createSpan = require('./span')
 const {
   ATTR_NET_PEER_NAME,
   ATTR_NET_PEER_PORT,
-  ATTR_MONGODB_COLLECTION,
+  ATTR_DB_COLLECTION_NAME,
   ATTR_SERVER_ADDRESS,
   ATTR_SERVER_PORT,
-  ATTR_DB_OPERATION,
+  ATTR_DB_OPERATION_NAME,
+  ATTR_DB_QUERY_TEXT,
   ATTR_DB_STATEMENT,
   ATTR_DB_SYSTEM,
+  ATTR_DB_SYSTEM_NAME,
   DB_SYSTEM_VALUES
 } = require('#agentlib/otel/traces/constants.js')
 
 function createDbClientSpan({ tracer, name = 'test-span' }) {
   const span = createSpan({ name, kind: SpanKind.CLIENT, tracer })
-  span.setAttribute(ATTR_DB_SYSTEM, 'custom-db')
+  span.setAttribute(ATTR_DB_SYSTEM_NAME, 'custom-db')
   span.setAttribute(ATTR_SERVER_ADDRESS, 'db.example.com')
   span.setAttribute(ATTR_SERVER_PORT, '1234')
-  span.setAttribute(ATTR_DB_STATEMENT, 'select * from test-table')
+  span.setAttribute(ATTR_DB_QUERY_TEXT, 'select * from test-table')
   return span
 }
 
@@ -48,18 +50,18 @@ function createMemcachedDbSpan({ tracer, name = 'test-span' }) {
 
 function createMongoDbSpan({ tracer, name = 'test-span' }) {
   const span = createSpan({ name, kind: SpanKind.CLIENT, tracer })
-  span.setAttribute(ATTR_DB_SYSTEM, DB_SYSTEM_VALUES.MONGODB)
-  span.setAttribute(ATTR_DB_OPERATION, 'insert')
-  span.setAttribute(ATTR_MONGODB_COLLECTION, 'test-collection')
-  span.setAttribute(ATTR_NET_PEER_NAME, 'mongo.example.com')
-  span.setAttribute(ATTR_NET_PEER_PORT, '27017')
+  span.setAttribute(ATTR_DB_SYSTEM_NAME, DB_SYSTEM_VALUES.MONGODB)
+  span.setAttribute(ATTR_DB_OPERATION_NAME, 'insert')
+  span.setAttribute(ATTR_DB_COLLECTION_NAME, 'test-collection')
+  span.setAttribute(ATTR_SERVER_ADDRESS, 'mongo.example.com')
+  span.setAttribute(ATTR_SERVER_PORT, '27017')
   return span
 }
 
 function createRedisDbSpan({ tracer, name = 'test-span' }) {
   const span = createSpan({ name, kind: SpanKind.CLIENT, tracer })
-  span.setAttribute(ATTR_DB_SYSTEM, DB_SYSTEM_VALUES.REDIS)
-  span.setAttribute(ATTR_DB_STATEMENT, 'hset hash random random')
+  span.setAttribute(ATTR_DB_SYSTEM_NAME, DB_SYSTEM_VALUES.REDIS)
+  span.setAttribute(ATTR_DB_QUERY_TEXT, 'hset hash random random')
   span.setAttribute(ATTR_SERVER_ADDRESS, 'redis.example.com')
   span.setAttribute(ATTR_SERVER_PORT, '6379')
   return span

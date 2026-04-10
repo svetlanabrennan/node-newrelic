@@ -19,9 +19,14 @@ const { DESTINATIONS } = require('../../../lib/transaction')
 const {
   ATTR_AWS_REGION,
   ATTR_DB_NAME,
+  ATTR_DB_NAMESPACE,
   ATTR_DB_OPERATION,
+  ATTR_DB_OPERATION_NAME,
+  ATTR_DB_COLLECTION_NAME,
   ATTR_DB_STATEMENT,
   ATTR_DB_SYSTEM,
+  ATTR_DB_SYSTEM_NAME,
+  ATTR_DB_QUERY_TEXT,
   ATTR_DYNAMO_TABLE_NAMES,
   ATTR_GRPC_STATUS_CODE,
   ATTR_FAAS_INVOKED_PROVIDER,
@@ -425,7 +430,107 @@ test('fallback client is bridged accordingly', (t, end) => {
   })
 })
 
-test('client span(db) is bridge accordingly(statement test)', (t, end) => {
+test('client span(db) 1.40 is bridge accordingly(query text test)', (t, end) => {
+  const { agent, tracer } = t.nr
+  const attributes = {
+    [ATTR_DB_NAMESPACE]: 'test-db',
+    [ATTR_DB_SYSTEM_NAME]: 'postgresql',
+    [ATTR_DB_QUERY_TEXT]: "select foo from test where foo = 'bar';",
+    [ATTR_SERVER_PORT]: 5436,
+    [ATTR_SERVER_ADDRESS]: '127.0.0.1'
+  }
+  const expectedHost = agent.config.getHostnameSafe()
+  helper.runInTransaction(agent, (tx) => {
+    tx.name = 'db-test'
+    tracer.startActiveSpan('db-test', { kind: otel.SpanKind.CLIENT, attributes }, (span) => {
+      const segment = agent.tracer.getSegment()
+      assert.equal(segment.name, 'Datastore/statement/postgresql/test/select')
+      assert.equal(tx.traceId, span.spanContext().traceId)
+      span.end()
+      const duration = hrTimeToMilliseconds(span.duration)
+      assert.equal(duration, segment.getDurationInMillis())
+      tx.end()
+      assertSpanKind({
+        agent,
+        segments: [
+          { name: segment.name, kind: 'client' }
+        ]
+      })
+      const attrs = segment.getAttributes()
+      assert.equal(attrs.host, expectedHost)
+      assert.equal(attrs.product, 'postgresql')
+      assert.equal(attrs.port_path_or_id, 5436)
+      assert.equal(attrs.database_name, 'test-db')
+      assert.equal(attrs.sql_obfuscated, 'select foo from test where foo = ?;')
+      const metrics = tx.metrics.scoped[tx.name]
+      assert.equal(metrics['Datastore/statement/postgresql/test/select'].callCount, 1)
+      const unscopedMetrics = tx.metrics.unscoped
+        ;[
+        'Datastore/all',
+        'Datastore/allWeb',
+        'Datastore/postgresql/all',
+        'Datastore/postgresql/allWeb',
+        'Datastore/operation/postgresql/select',
+        'Datastore/statement/postgresql/test/select',
+          `Datastore/instance/postgresql/${expectedHost}/5436`
+      ].forEach((expectedMetric) => {
+        assert.equal(unscopedMetrics[expectedMetric].callCount, 1)
+      })
+
+      end()
+    })
+  })
+})
+
+test('client span(db) 1.24 is bridged accordingly(operation test)', (t, end) => {
+  const { agent, tracer } = t.nr
+  const attributes = {
+    [ATTR_DB_SYSTEM]: DB_SYSTEM_VALUES.REDIS,
+    [ATTR_DB_STATEMENT]: 'hset key value',
+    [ATTR_SERVER_PORT]: 5436,
+    [ATTR_SERVER_ADDRESS]: '127.0.0.1'
+  }
+  const expectedHost = agent.config.getHostnameSafe()
+  helper.runInTransaction(agent, (tx) => {
+    tx.name = 'db-test'
+    tracer.startActiveSpan('db-test', { kind: otel.SpanKind.CLIENT, attributes }, (span) => {
+      const segment = agent.tracer.getSegment()
+      assert.equal(segment.name, 'Datastore/operation/redis/hset')
+      assert.equal(tx.traceId, span.spanContext().traceId)
+      span.end()
+      const duration = hrTimeToMilliseconds(span.duration)
+      assert.equal(duration, segment.getDurationInMillis())
+      tx.end()
+      assertSpanKind({
+        agent,
+        segments: [
+          { name: segment.name, kind: 'client' }
+        ]
+      })
+      const attrs = segment.getAttributes()
+      assert.equal(attrs.host, expectedHost)
+      assert.equal(attrs.product, 'redis')
+      assert.equal(attrs.port_path_or_id, 5436)
+      const metrics = tx.metrics.scoped[tx.name]
+      assert.equal(metrics['Datastore/operation/redis/hset'].callCount, 1)
+      const unscopedMetrics = tx.metrics.unscoped
+        ;[
+        'Datastore/all',
+        'Datastore/allWeb',
+        'Datastore/redis/all',
+        'Datastore/redis/allWeb',
+        'Datastore/operation/redis/hset',
+          `Datastore/instance/redis/${expectedHost}/5436`
+      ].forEach((expectedMetric) => {
+        assert.equal(unscopedMetrics[expectedMetric].callCount, 1)
+      })
+
+      end()
+    })
+  })
+})
+
+test('client span(db) 1.24 is bridge accordingly(statement test)', (t, end) => {
   const { agent, tracer } = t.nr
   const attributes = {
     [ATTR_DB_NAME]: 'test-db',
@@ -477,13 +582,13 @@ test('client span(db) is bridge accordingly(statement test)', (t, end) => {
   })
 })
 
-test('client span(db) is bridged accordingly(operation test)', (t, end) => {
+test('client span(db) 1.17 is bridged accordingly(operation test)', (t, end) => {
   const { agent, tracer } = t.nr
   const attributes = {
     [ATTR_DB_SYSTEM]: DB_SYSTEM_VALUES.REDIS,
     [ATTR_DB_STATEMENT]: 'hset key value',
-    [ATTR_SERVER_PORT]: 5436,
-    [ATTR_SERVER_ADDRESS]: '127.0.0.1'
+    [ATTR_NET_PEER_PORT]: 5436,
+    [ATTR_NET_PEER_NAME]: '127.0.0.1'
   }
   const expectedHost = agent.config.getHostnameSafe()
   helper.runInTransaction(agent, (tx) => {
@@ -525,20 +630,22 @@ test('client span(db) is bridged accordingly(operation test)', (t, end) => {
   })
 })
 
-test('client span(db) 1.17 is bridged accordingly(operation test)', (t, end) => {
+test('client span(db) 1.40 mongodb is bridged accordingly(operation test)', (t, end) => {
   const { agent, tracer } = t.nr
   const attributes = {
-    [ATTR_DB_SYSTEM]: DB_SYSTEM_VALUES.REDIS,
-    [ATTR_DB_STATEMENT]: 'hset key value',
-    [ATTR_NET_PEER_PORT]: 5436,
-    [ATTR_NET_PEER_NAME]: '127.0.0.1'
+    [ATTR_DB_SYSTEM_NAME]: DB_SYSTEM_VALUES.MONGODB,
+    [ATTR_DB_NAMESPACE]: 'test-db',
+    [ATTR_DB_COLLECTION_NAME]: 'test-collection',
+    [ATTR_DB_OPERATION_NAME]: 'findOne',
+    [ATTR_SERVER_PORT]: 5436,
+    [ATTR_SERVER_ADDRESS]: '127.0.0.1'
   }
   const expectedHost = agent.config.getHostnameSafe()
   helper.runInTransaction(agent, (tx) => {
     tx.name = 'db-test'
     tracer.startActiveSpan('db-test', { kind: otel.SpanKind.CLIENT, attributes }, (span) => {
       const segment = agent.tracer.getSegment()
-      assert.equal(segment.name, 'Datastore/operation/redis/hset')
+      assert.equal(segment.name, 'Datastore/statement/mongodb/test-collection/findOne')
       assert.equal(tx.traceId, span.spanContext().traceId)
       span.end()
       const duration = hrTimeToMilliseconds(span.duration)
@@ -552,18 +659,20 @@ test('client span(db) 1.17 is bridged accordingly(operation test)', (t, end) => 
       })
       const attrs = segment.getAttributes()
       assert.equal(attrs.host, expectedHost)
-      assert.equal(attrs.product, 'redis')
+      assert.equal(attrs.product, 'mongodb')
       assert.equal(attrs.port_path_or_id, 5436)
+      assert.equal(attrs.database_name, 'test-db')
       const metrics = tx.metrics.scoped[tx.name]
-      assert.equal(metrics['Datastore/operation/redis/hset'].callCount, 1)
+      assert.equal(metrics['Datastore/statement/mongodb/test-collection/findOne'].callCount, 1)
       const unscopedMetrics = tx.metrics.unscoped
         ;[
         'Datastore/all',
         'Datastore/allWeb',
-        'Datastore/redis/all',
-        'Datastore/redis/allWeb',
-        'Datastore/operation/redis/hset',
-          `Datastore/instance/redis/${expectedHost}/5436`
+        'Datastore/mongodb/all',
+        'Datastore/mongodb/allWeb',
+        'Datastore/operation/mongodb/findOne',
+        'Datastore/statement/mongodb/test-collection/findOne',
+          `Datastore/instance/mongodb/${expectedHost}/5436`
       ].forEach((expectedMetric) => {
         assert.equal(unscopedMetrics[expectedMetric].callCount, 1)
       })
@@ -1160,7 +1269,7 @@ test('Span errors are not added on transaction when span status code is not erro
 test('aws dynamodb span has correct entity linking attributes', (t, end) => {
   const { agent, tracer } = t.nr
   const attributes = {
-    [ATTR_DB_NAME]: 'test-db',
+    [ATTR_DB_NAMESPACE]: 'test-db',
     [ATTR_DB_SYSTEM]: DB_SYSTEM_VALUES.DYNAMODB,
     [ATTR_DB_OPERATION]: 'getItem',
     [ATTR_AWS_REGION]: 'us-east-1',
