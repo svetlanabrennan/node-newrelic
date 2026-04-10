@@ -53,12 +53,8 @@ test('Converse API', { skip: semver.lt(bedrockVersion, '3.587.0') }, async (t) =
     agent.llm.tokenCountCallback = null
   })
 
-  await t.test('should log tracking metrics', function(t) {
-    const { version } = require('@smithy/smithy-client/package.json')
-    assertPackageMetrics({ agent, pkg: '@smithy/smithy-client', version })
-  })
-
   await t.test('should properly create completion segment', async (t) => {
+    const { version } = require('@smithy/smithy-client/package.json')
     const prompt = 'text converse ultimate question'
     const input = {
       modelId,
@@ -80,6 +76,7 @@ test('Converse API', { skip: semver.lt(bedrockVersion, '3.587.0') }, async (t) =
         ['Llm/completion/Bedrock/ConverseCommand', [expectedExternalPath(modelId)]],
         { exact: false }
       )
+      assertPackageMetrics({ agent, pkg: '@smithy/smithy-client', version, subscriberType: true })
       tx.end()
     })
   })
