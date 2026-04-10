@@ -120,7 +120,7 @@ test('fromSegment()', async (t) => {
       // Should have no datastore properties.
       assert.ok(!hasOwnAttribute('db.statement'))
       assert.ok(!hasOwnAttribute('db.instance'))
-      assert.ok(!hasOwnAttribute('db.system.name'))
+      assert.ok(!hasOwnAttribute('db.system'))
       assert.ok(!hasOwnAttribute('peer.hostname'))
       assert.ok(!hasOwnAttribute('peer.address'))
 
@@ -193,7 +193,7 @@ test('fromSegment()', async (t) => {
           })
 
           // Should have no datastore properties.
-          ;['db.statement', 'db.instance', 'db.system.name', 'peer.hostname', 'peer.address'].forEach(
+          ;['db.statement', 'db.instance', 'db.system', 'peer.hostname', 'peer.address'].forEach(
             (attr) => {
               assert.ok(!hasOwnAttribute(attr))
             }
