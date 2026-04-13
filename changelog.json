@@ -2,6 +2,18 @@
   "repository": "newrelic/node-newrelic",
   "entries": [
     {
+      "version": "13.19.0",
+      "changes": {
+        "security": [],
+        "bugfixes": [],
+        "features": [
+          "Added instrumentation support for `@anthropic-ai/sdk`",
+          "Updated OTel DB attributes to stable names from semantic conventions 1.40.0",
+          "Added distributed tracing propagation to AWS SDK v3 SNS"
+        ]
+      }
+    },
+    {
       "version": "13.18.0",
       "changes": {
         "security": [],
