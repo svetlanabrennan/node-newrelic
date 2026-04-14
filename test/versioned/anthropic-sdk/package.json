@@ -3,7 +3,7 @@
   "targets": [
     {
       "name": "@anthropic-ai/sdk",
-      "minAgentVersion": "13.18.0"
+      "minAgentVersion": "13.19.0"
     }
   ],
   "version": "0.0.0",
