@@ -14,11 +14,9 @@ const { Transform, Readable } = require('node:stream')
 
 const helper = require('../../lib/agent_helper.js')
 const { removeMatchedModules } = require('../../lib/cache-buster.js')
-const GenericShim = require('../../../lib/shim/shim.js')
 const Transaction = require('../../../lib/transaction/index.js')
 
 const { DESTINATIONS: DESTS } = Transaction
-const MODULE_NAME = 'azure-functions'
 const TRACE_ID = '0af7651916cd43dd8448eb211c80319c'
 const SPAN_ID = 'b9c7c989f97918e1'
 
@@ -42,13 +40,16 @@ class AzureFunctionHttpResponse {
 test.beforeEach((ctx) => {
   ctx.nr = {}
 
-  ctx.nr.agent = helper.loadMockedAgent()
-  ctx.nr.shim = new GenericShim(ctx.nr.agent, 'azure-functions')
+  ctx.nr.agent = helper.instrumentMockedAgent()
 
   ctx.nr.logs = []
   ctx.nr.logger = {
     warn(...args) {
       ctx.nr.logs.push(args)
+    },
+    trace: () => {},
+    child() {
+      return ctx.nr.logger
     }
   }
 
@@ -59,7 +60,6 @@ test.beforeEach((ctx) => {
 
 test.afterEach((ctx) => {
   helper.unloadAgent(ctx.nr.agent)
-  removeMatchedModules(/lib\/instrumentation\/@azure\/functions\.js/)
 
   delete process.env.WEBSITE_OWNER_NAME
   delete process.env.WEBSITE_RESOURCE_GROUP
@@ -67,7 +67,13 @@ test.afterEach((ctx) => {
 })
 
 function bootstrapModule({ t, request = basicHttpRequest }) {
-  t.nr.initialize = require('../../../lib/instrumentation/@azure/functions.js')
+  removeMatchedModules(/lib\/subscribers\/azure-functions\//)
+  const AzureFunctionsHttpMethodsSubscriber =
+    require('../../../lib/subscribers/azure-functions/http-methods.js')
+  t.nr.subscriber = new AzureFunctionsHttpMethodsSubscriber({
+    agent: t.nr.agent,
+    logger: t.nr.logger
+  })
 
   const mockApi = {
     httpHandlers: {},
@@ -89,27 +95,23 @@ function bootstrapModule({ t, request = basicHttpRequest }) {
         }
       })
     },
-    app: {
-      http(name, options) {
-        mockApi.httpHandlers.GET = options.handler
-      },
-      get(name, options) {
-        mockApi.httpHandlers.GET = options.handler ?? options
-      },
-      put(name, options) {
-        mockApi.httpHandlers.PUT = options.handler
-      },
-      post(name, options) {
-        mockApi.httpHandlers.POST = options.handler
-      },
-      patch(name, options) {
-        mockApi.httpHandlers.PATCH = options.handler
-      },
-      deleteRequest(name, options) {
-        mockApi.httpHandlers.DELETE = options.handler
-      }
+    app: {}
+  }
+
+  const httpMethods = ['http', 'get', 'put', 'post', 'patch', 'deleteRequest']
+  for (const method of httpMethods) {
+    mockApi.app[method] = function (name, optionsOrHandler) {
+      const data = { arguments: [name, optionsOrHandler] }
+      const ctx = t.nr.agent.tracer.getContext()
+      t.nr.subscriber.handler(data, ctx)
+
+      let key = method.toUpperCase()
+      if (method === 'http') key = 'GET'
+      if (method === 'deleteRequest') key = 'DELETE'
+      mockApi.httpHandlers[key] = data.arguments[1].handler
     }
   }
+
   t.nr.mockApi = mockApi
 }
 
@@ -119,8 +121,6 @@ test('warns for missing env vars', (t) => {
   delete process.env.WEBSITE_SITE_NAME
   bootstrapModule({ t })
 
-  const { agent, initialize, logger, shim } = t.nr
-  initialize(agent, {}, null, shim, { logger })
   assert.deepStrictEqual(t.nr.logs, [
     [
       {
@@ -134,21 +134,9 @@ test('warns for missing env vars', (t) => {
   ])
 })
 
-test('wraps expected methods', (t) => {
-  bootstrapModule({ t })
-  const { agent, initialize, mockApi, shim } = t.nr
-
-  initialize(agent, mockApi, MODULE_NAME, shim)
-  for (const key of Object.keys(mockApi.app)) {
-    const isWrapped = shim.isWrapped(mockApi.app[key])
-    assert.equal(isWrapped, true)
-  }
-})
-
 test('instruments all HTTP methods', async (t) => {
   bootstrapModule({ t })
-  const { agent, initialize, mockApi, shim } = t.nr
-  initialize(agent, mockApi, MODULE_NAME, shim)
+  const { agent, mockApi } = t.nr
 
   const handler = async function (request) {
     assert.equal(request.url, 'http://example.com')
@@ -210,11 +198,10 @@ test('handles distributed tracing information', async (t) => {
   }
 
   bootstrapModule({ t, request: clientRequest })
-  const { agent, initialize, mockApi, shim } = t.nr
+  const { agent, mockApi } = t.nr
   agent.config.distributed_tracing.enabled = true
   agent.config.account_id = '33'
   agent.config.trusted_account_key = '33'
-  initialize(agent, mockApi, MODULE_NAME, shim)
 
   const handler = async function () {
     const response = new AzureFunctionHttpResponse()
@@ -252,8 +239,7 @@ test('handles queue time headers', async (t) => {
   }
 
   bootstrapModule({ t, request: clientRequest })
-  const { agent, initialize, mockApi, shim } = t.nr
-  initialize(agent, mockApi, MODULE_NAME, shim)
+  const { agent, mockApi } = t.nr
 
   const handler = async function () {
     const response = new AzureFunctionHttpResponse()
@@ -277,8 +263,7 @@ test('handles queue time headers', async (t) => {
 
 test('set cold start attribute correctly', async (t) => {
   bootstrapModule({ t })
-  const { agent, initialize, mockApi, shim } = t.nr
-  initialize(agent, mockApi, MODULE_NAME, shim)
+  const { agent, mockApi } = t.nr
 
   const handler = async function () {
     const response = new AzureFunctionHttpResponse()
@@ -310,8 +295,7 @@ test('set cold start attribute correctly', async (t) => {
 
 test('recognizes handler as second parameter instead of options', async (t) => {
   bootstrapModule({ t })
-  const { agent, initialize, mockApi, shim } = t.nr
-  initialize(agent, mockApi, MODULE_NAME, shim)
+  const { agent, mockApi } = t.nr
 
   const handler = async function () {
     const response = new AzureFunctionHttpResponse()
@@ -333,8 +317,7 @@ test('uses port provided in url', async (t) => {
   clientRequest.url = 'http://example.com:8080/'
 
   bootstrapModule({ t, request: clientRequest })
-  const { agent, initialize, mockApi, shim } = t.nr
-  initialize(agent, mockApi, MODULE_NAME, shim)
+  const { agent, mockApi } = t.nr
 
   const handler = async function () {
     const response = new AzureFunctionHttpResponse()
@@ -356,8 +339,7 @@ test('uses port provided in url', async (t) => {
 
 test('ends transaction on stream close', async (t) => {
   bootstrapModule({ t })
-  const { agent, initialize, mockApi, shim } = t.nr
-  initialize(agent, mockApi, MODULE_NAME, shim)
+  const { agent, mockApi } = t.nr
 
   const handler = async function () {
     const response = new AzureFunctionHttpResponse()

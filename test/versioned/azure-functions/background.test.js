@@ -11,11 +11,9 @@ const { once } = require('node:events')
 
 const helper = require('../../lib/agent_helper.js')
 const { removeMatchedModules } = require('../../lib/cache-buster.js')
-const GenericShim = require('../../../lib/shim/shim.js')
 const Transaction = require('../../../lib/transaction/index.js')
 
 const { DESTINATIONS: DESTS } = Transaction
-const MODULE_NAME = 'azure-functions'
 
 // As pulled from https://github.com/Azure/azure-functions-nodejs-library/blob/138c021/src/app.ts
 // Excludes HTTP methods as they are tested by the HTTP trigger
@@ -97,13 +95,17 @@ const azureFunctionsAppMethods = {
 
 test.beforeEach((ctx) => {
   ctx.nr = {}
-  ctx.nr.agent = helper.loadMockedAgent()
-  ctx.nr.shim = new GenericShim(ctx.nr.agent, 'azure-functions')
+  ctx.nr.agent = helper.instrumentMockedAgent()
 
   ctx.nr.logs = []
+  const noop = () => {}
   ctx.nr.logger = {
     warn(...args) {
       ctx.nr.logs.push(args)
+    },
+    trace: noop,
+    child() {
+      return ctx.nr.logger
     }
   }
 
@@ -114,7 +116,6 @@ test.beforeEach((ctx) => {
 
 test.afterEach((ctx) => {
   helper.unloadAgent(ctx.nr.agent)
-  removeMatchedModules(/lib\/instrumentation\/@azure\/functions\.js/)
 
   delete process.env.WEBSITE_OWNER_NAME
   delete process.env.WEBSITE_RESOURCE_GROUP
@@ -122,7 +123,9 @@ test.afterEach((ctx) => {
 })
 
 function bootstrapModule({ t }) {
-  t.nr.initialize = require('../../../lib/instrumentation/@azure/functions.js')
+  removeMatchedModules(/lib\/subscribers\/azure-functions\//)
+  const AzureFunctionsBackgroundMethodsSubscriber =
+    require('../../../lib/subscribers/azure-functions/background-methods.js')
 
   const mockApi = {
     handlers: {},
@@ -146,11 +149,21 @@ function bootstrapModule({ t }) {
     app: {}
   }
 
+  const subscriber = new AzureFunctionsBackgroundMethodsSubscriber({
+    agent: t.nr.agent,
+    logger: t.nr.logger
+  })
+  t.nr.subscriber = subscriber
+
   for (const [method, value] of Object.entries(azureFunctionsAppMethods)) {
     const TRIGGER_TYPE = value.triggerType.toUpperCase()
-    mockApi.app[method] = (name, options) => {
+    mockApi.app[method] = (name, optionsOrHandler) => {
+      const data = { arguments: [name, optionsOrHandler] }
+      const ctx = t.nr.agent.tracer.getContext()
+      subscriber.handler(data, ctx)
+
       const key = `${TRIGGER_TYPE}_${method}`
-      mockApi.handlers[key] = options.handler
+      mockApi.handlers[key] = data.arguments[1].handler
     }
   }
 
@@ -159,8 +172,7 @@ function bootstrapModule({ t }) {
 
 test('instruments background methods', async (t) => {
   bootstrapModule({ t })
-  const { agent, initialize, mockApi, shim } = t.nr
-  initialize(agent, mockApi, MODULE_NAME, shim)
+  const { agent, mockApi } = t.nr
 
   for (const [method, value] of Object.entries(azureFunctionsAppMethods)) {
     const txFinished = once(agent, 'transactionFinished')
