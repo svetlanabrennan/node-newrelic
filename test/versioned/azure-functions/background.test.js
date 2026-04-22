@@ -116,6 +116,7 @@ test.beforeEach((ctx) => {
 
 test.afterEach((ctx) => {
   helper.unloadAgent(ctx.nr.agent)
+  removeMatchedModules(/lib\/subscribers\/azure-functions\//)
 
   delete process.env.WEBSITE_OWNER_NAME
   delete process.env.WEBSITE_RESOURCE_GROUP
@@ -146,7 +147,9 @@ function bootstrapModule({ t }) {
         }
       })
     },
-    app: {}
+    app: {
+      hook: { log() {} }
+    }
   }
 
   const subscriber = new AzureFunctionsBackgroundMethodsSubscriber({
@@ -154,6 +157,9 @@ function bootstrapModule({ t }) {
     logger: t.nr.logger
   })
   t.nr.subscriber = subscriber
+
+  // Register the log hook with mockApi so it doesn't call require('@azure/functions')
+  subscriber.registerLogHook(mockApi)
 
   for (const [method, value] of Object.entries(azureFunctionsAppMethods)) {
     const TRIGGER_TYPE = value.triggerType.toUpperCase()

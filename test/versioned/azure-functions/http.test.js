@@ -60,6 +60,7 @@ test.beforeEach((ctx) => {
 
 test.afterEach((ctx) => {
   helper.unloadAgent(ctx.nr.agent)
+  removeMatchedModules(/lib\/subscribers\/azure-functions\//)
 
   delete process.env.WEBSITE_OWNER_NAME
   delete process.env.WEBSITE_RESOURCE_GROUP
@@ -95,8 +96,13 @@ function bootstrapModule({ t, request = basicHttpRequest }) {
         }
       })
     },
-    app: {}
+    app: {
+      hook: { log() {} }
+    }
   }
+
+  // Register the log hook with mockApi so it doesn't call require('@azure/functions')
+  t.nr.subscriber.registerLogHook(mockApi)
 
   const httpMethods = ['http', 'get', 'put', 'post', 'patch', 'deleteRequest']
   for (const method of httpMethods) {

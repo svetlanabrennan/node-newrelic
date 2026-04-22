@@ -11,9 +11,7 @@ const { once } = require('node:events')
 
 const helper = require('../../lib/agent_helper.js')
 const { removeMatchedModules } = require('../../lib/cache-buster.js')
-const GenericShim = require('../../../lib/shim/shim.js')
 
-const MODULE_NAME = 'azure-functions'
 const TRACE_ID = '0af7651916cd43dd8448eb211c80319c'
 const SPAN_ID = 'b9c7c989f97918e1'
 
@@ -37,13 +35,19 @@ class AzureFunctionHttpResponse {
 test.beforeEach((ctx) => {
   ctx.nr = {}
 
-  ctx.nr.agent = helper.loadMockedAgent()
-  ctx.nr.shim = new GenericShim(ctx.nr.agent, 'azure-functions')
+  ctx.nr.agent = helper.instrumentMockedAgent()
 
   ctx.nr.logs = []
   ctx.nr.logger = {
     debug(...args) {
       ctx.nr.logs.push(args)
+    },
+    warn(...args) {
+      ctx.nr.logs.push(args)
+    },
+    trace: () => {},
+    child() {
+      return ctx.nr.logger
     }
   }
 
@@ -54,7 +58,7 @@ test.beforeEach((ctx) => {
 
 test.afterEach((ctx) => {
   helper.unloadAgent(ctx.nr.agent)
-  removeMatchedModules(/lib\/instrumentation\/@azure\/functions\.js/)
+  removeMatchedModules(/lib\/subscribers\/azure-functions\//)
 
   delete process.env.WEBSITE_OWNER_NAME
   delete process.env.WEBSITE_RESOURCE_GROUP
@@ -77,7 +81,13 @@ async function runHandlerAndWait(agent, mockApi, handler) {
 }
 
 function bootstrapModule({ t, request = basicHttpRequest }) {
-  t.nr.initialize = require('../../../lib/instrumentation/@azure/functions.js')
+  removeMatchedModules(/lib\/subscribers\/azure-functions\//)
+  const AzureFunctionsHttpMethodsSubscriber =
+    require('../../../lib/subscribers/azure-functions/http-methods.js')
+  t.nr.subscriber = new AzureFunctionsHttpMethodsSubscriber({
+    agent: t.nr.agent,
+    logger: t.nr.logger
+  })
 
   const logHookCallbacks = []
 
@@ -115,12 +125,20 @@ function bootstrapModule({ t, request = basicHttpRequest }) {
         log(callback) {
           logHookCallbacks.push(callback)
         }
-      },
-      get(name, options) {
-        mockApi.httpHandlers.GET = options.handler ?? options
       }
     }
   }
+
+  mockApi.app.get = function (name, optionsOrHandler) {
+    const data = { arguments: [name, optionsOrHandler] }
+    const ctx = t.nr.agent.tracer.getContext()
+    t.nr.subscriber.handler(data, ctx)
+    mockApi.httpHandlers.GET = data.arguments[1].handler
+  }
+
+  // Register the log hook with mockApi so it doesn't call require('@azure/functions')
+  t.nr.subscriber.registerLogHook(mockApi)
+
   t.nr.mockApi = mockApi
 }
 
@@ -132,11 +150,10 @@ test('adds logs from azure functions to agent logs', async (t) => {
   }
 
   bootstrapModule({ t, request: clientRequest })
-  const { agent, initialize, mockApi, shim } = t.nr
+  const { agent, mockApi } = t.nr
   agent.config.distributed_tracing.enabled = true
   agent.config.account_id = '33'
   agent.config.trusted_account_key = '33'
-  initialize(agent, mockApi, MODULE_NAME, shim)
 
   const handler = async function (_request, context) {
     context.log('test message')
@@ -157,10 +174,9 @@ test('adds logs from azure functions to agent logs', async (t) => {
 })
 
 test('does not capture logs when application logging is disabled', async (t) => {
+  t.nr.agent.config.application_logging.enabled = false
   bootstrapModule({ t })
-  const { agent, initialize, mockApi, shim, logger } = t.nr
-  agent.config.application_logging.enabled = false
-  initialize(agent, mockApi, MODULE_NAME, shim, { logger })
+  const { agent, mockApi } = t.nr
 
   const handler = async function (_request, context) {
     context.log('app logging disabled message')
@@ -177,10 +193,9 @@ test('does not capture logs when application logging is disabled', async (t) => 
 })
 
 test('does not capture logs when log forwarding is disabled', async (t) => {
+  t.nr.agent.config.application_logging.forwarding.enabled = false
   bootstrapModule({ t })
-  const { agent, initialize, mockApi, shim, logger } = t.nr
-  agent.config.application_logging.forwarding.enabled = false
-  initialize(agent, mockApi, MODULE_NAME, shim, { logger })
+  const { agent, mockApi } = t.nr
 
   const handler = async function (_request, context) {
     context.log('log forwarding disabled message')
@@ -195,8 +210,7 @@ test('does not capture logs when log forwarding is disabled', async (t) => {
 
 test('increments logging metrics for each log call when metrics are enabled', async (t) => {
   bootstrapModule({ t })
-  const { agent, initialize, mockApi, shim } = t.nr
-  initialize(agent, mockApi, MODULE_NAME, shim)
+  const { agent, mockApi } = t.nr
 
   const handler = async function (_request, context) {
     context.error('metrics enabled message')
@@ -211,10 +225,9 @@ test('increments logging metrics for each log call when metrics are enabled', as
 })
 
 test('does not increment logging metrics when metrics are disabled', async (t) => {
+  t.nr.agent.config.application_logging.metrics.enabled = false
   bootstrapModule({ t })
-  const { agent, initialize, mockApi, shim } = t.nr
-  agent.config.application_logging.metrics.enabled = false
-  initialize(agent, mockApi, MODULE_NAME, shim)
+  const { agent, mockApi } = t.nr
 
   const handler = async function (_request, context) {
     context.error('metrics disabled message')
@@ -231,8 +244,7 @@ test('does not increment logging metrics when metrics are disabled', async (t) =
 // https://learn.microsoft.com/en-us/azure/azure-functions/functions-reference-node?tabs=javascript%2Cwindows%2Cazure-cli&pivots=nodejs-model-v4#log-levels
 test('captures correct log level for each context log method', async (t) => {
   bootstrapModule({ t })
-  const { agent, initialize, mockApi, shim } = t.nr
-  initialize(agent, mockApi, MODULE_NAME, shim)
+  const { agent, mockApi } = t.nr
 
   const handler = async function (_request, context) {
     context.log('log message')
@@ -268,8 +280,7 @@ test('captures correct log level for each context log method', async (t) => {
 
 test('maps azure log levels to NR metric level names', async (t) => {
   bootstrapModule({ t })
-  const { agent, initialize, mockApi, shim } = t.nr
-  initialize(agent, mockApi, MODULE_NAME, shim)
+  const { agent, mockApi } = t.nr
 
   const handler = async function (_request, context) {
     context.info('azure info level message')
