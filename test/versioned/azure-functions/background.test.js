@@ -8,10 +8,10 @@
 const test = require('node:test')
 const assert = require('node:assert')
 const { once } = require('node:events')
-
 const helper = require('../../lib/agent_helper.js')
-const { removeMatchedModules } = require('../../lib/cache-buster.js')
+const { removeModules } = require('../../lib/cache-buster.js')
 const Transaction = require('../../../lib/transaction/index.js')
+const { copyFakeCorePkg } = require('./utils.js')
 
 const { DESTINATIONS: DESTS } = Transaction
 
@@ -96,16 +96,10 @@ const azureFunctionsAppMethods = {
 test.beforeEach((ctx) => {
   ctx.nr = {}
   ctx.nr.agent = helper.instrumentMockedAgent()
-
   ctx.nr.logs = []
-  const noop = () => {}
   ctx.nr.logger = {
     warn(...args) {
       ctx.nr.logs.push(args)
-    },
-    trace: noop,
-    child() {
-      return ctx.nr.logger
     }
   }
 
@@ -116,7 +110,7 @@ test.beforeEach((ctx) => {
 
 test.afterEach((ctx) => {
   helper.unloadAgent(ctx.nr.agent)
-  removeMatchedModules(/lib\/subscribers\/azure-functions\//)
+  removeModules(['@azure/functions', '@azure/functions-core'])
 
   delete process.env.WEBSITE_OWNER_NAME
   delete process.env.WEBSITE_RESOURCE_GROUP
@@ -124,19 +118,12 @@ test.afterEach((ctx) => {
 })
 
 function bootstrapModule({ t }) {
-  removeMatchedModules(/lib\/subscribers\/azure-functions\//)
-  const AzureFunctionsBackgroundMethodsSubscriber =
-    require('../../../lib/subscribers/azure-functions/background-methods.js')
+  copyFakeCorePkg()
+  const { app } = require('@azure/functions')
 
   const mockApi = {
     handlers: {},
-    request(method, triggerType) {
-      triggerType = triggerType.toUpperCase()
-      const key = `${triggerType}_${method}`
-      if (Object.hasOwn(mockApi.handlers, key) === false) {
-        throw Error(`no handler registered for trigger: ${key}`)
-      }
-      const handler = mockApi.handlers[key]
+    request(method, handler) {
       return handler(azureFunctionsAppMethods[method].payload, {
         invocationId: 'test-123',
         functionName: `test-func-${method}`,
@@ -147,30 +134,7 @@ function bootstrapModule({ t }) {
         }
       })
     },
-    app: {
-      hook: { log() {} }
-    }
-  }
-
-  const subscriber = new AzureFunctionsBackgroundMethodsSubscriber({
-    agent: t.nr.agent,
-    logger: t.nr.logger
-  })
-  t.nr.subscriber = subscriber
-
-  // Register the log hook with mockApi so it doesn't call require('@azure/functions')
-  subscriber.registerLogHook(mockApi)
-
-  for (const [method, value] of Object.entries(azureFunctionsAppMethods)) {
-    const TRIGGER_TYPE = value.triggerType.toUpperCase()
-    mockApi.app[method] = (name, optionsOrHandler) => {
-      const data = { arguments: [name, optionsOrHandler] }
-      const ctx = t.nr.agent.tracer.getContext()
-      subscriber.handler(data, ctx)
-
-      const key = `${TRIGGER_TYPE}_${method}`
-      mockApi.handlers[key] = data.arguments[1].handler
-    }
+    app
   }
 
   t.nr.mockApi = mockApi
@@ -187,8 +151,10 @@ test('instruments background methods', async (t) => {
     }
 
     const key = `${value.triggerType.toUpperCase()}_${method}`
-    mockApi.app[method](`${key}-test`, { handler })
-    await mockApi.request(method, value.triggerType)
+    const options = { handler }
+    mockApi.app[method](`${key}-test`, options)
+    const wrappedHandler = global.azure.handlers.at(-1)
+    await mockApi.request(method, wrappedHandler)
 
     const [tx] = await txFinished
     assert.ok(tx)

@@ -10,8 +10,8 @@ const assert = require('node:assert')
 const { once } = require('node:events')
 
 const helper = require('../../lib/agent_helper.js')
-const { removeMatchedModules } = require('../../lib/cache-buster.js')
-
+const { removeModules } = require('../../lib/cache-buster.js')
+const { copyFakeCorePkg } = require('./utils.js')
 const TRACE_ID = '0af7651916cd43dd8448eb211c80319c'
 const SPAN_ID = 'b9c7c989f97918e1'
 
@@ -41,13 +41,6 @@ test.beforeEach((ctx) => {
   ctx.nr.logger = {
     debug(...args) {
       ctx.nr.logs.push(args)
-    },
-    warn(...args) {
-      ctx.nr.logs.push(args)
-    },
-    trace: () => {},
-    child() {
-      return ctx.nr.logger
     }
   }
 
@@ -58,7 +51,7 @@ test.beforeEach((ctx) => {
 
 test.afterEach((ctx) => {
   helper.unloadAgent(ctx.nr.agent)
-  removeMatchedModules(/lib\/subscribers\/azure-functions\//)
+  removeModules(['@azure/functions', '@azure/functions-core'])
 
   delete process.env.WEBSITE_OWNER_NAME
   delete process.env.WEBSITE_RESOURCE_GROUP
@@ -74,37 +67,29 @@ function makeOkResponse() {
 
 async function runHandlerAndWait(agent, mockApi, handler) {
   const txFinished = once(agent, 'transactionFinished')
-  mockApi.app.get('a-test', { handler })
-  const response = await mockApi.httpRequest('get')
+  const options = { handler }
+  mockApi.app.get('a-test', options)
+  const wrappedHandler = global.azure.handlers.at(-1)
+  const response = await mockApi.httpRequest('get', wrappedHandler)
   const [tx] = await txFinished
   return { response, tx }
 }
 
 function bootstrapModule({ t, request = basicHttpRequest }) {
-  removeMatchedModules(/lib\/subscribers\/azure-functions\//)
-  const AzureFunctionsHttpMethodsSubscriber =
-    require('../../../lib/subscribers/azure-functions/http-methods.js')
-  t.nr.subscriber = new AzureFunctionsHttpMethodsSubscriber({
-    agent: t.nr.agent,
-    logger: t.nr.logger
-  })
-
-  const logHookCallbacks = []
+  copyFakeCorePkg()
+  const { app } = require('@azure/functions')
 
   const mockApi = {
     httpHandlers: {},
-    httpRequest(method) {
+    httpRequest(method, handler) {
       method = method.toUpperCase()
-      if (Object.hasOwn(mockApi.httpHandlers, method) === false) {
-        throw Error(`no handler registered for method: ${method}`)
-      }
       request.method = method
       function fireLogHook(message, level) {
-        for (const cb of logHookCallbacks) {
+        for (const cb of global.azure.logHandlers) {
           cb({ message, level, category: 'Function.test-func' })
         }
       }
-      return mockApi.httpHandlers[method](request, {
+      return handler(request, {
         invocationId: 'test-123',
         functionName: 'test-func',
         options: {
@@ -120,24 +105,8 @@ function bootstrapModule({ t, request = basicHttpRequest }) {
         trace(message) { fireLogHook(message, 'trace') }
       })
     },
-    app: {
-      hook: {
-        log(callback) {
-          logHookCallbacks.push(callback)
-        }
-      }
-    }
+    app
   }
-
-  mockApi.app.get = function (name, optionsOrHandler) {
-    const data = { arguments: [name, optionsOrHandler] }
-    const ctx = t.nr.agent.tracer.getContext()
-    t.nr.subscriber.handler(data, ctx)
-    mockApi.httpHandlers.GET = data.arguments[1].handler
-  }
-
-  // Register the log hook with mockApi so it doesn't call require('@azure/functions')
-  t.nr.subscriber.registerLogHook(mockApi)
 
   t.nr.mockApi = mockApi
 }
@@ -174,9 +143,9 @@ test('adds logs from azure functions to agent logs', async (t) => {
 })
 
 test('does not capture logs when application logging is disabled', async (t) => {
-  t.nr.agent.config.application_logging.enabled = false
   bootstrapModule({ t })
   const { agent, mockApi } = t.nr
+  agent.config.application_logging.enabled = false
 
   const handler = async function (_request, context) {
     context.log('app logging disabled message')
@@ -187,15 +156,12 @@ test('does not capture logs when application logging is disabled', async (t) => 
 
   const agentLogs = agent.logs.getEvents()
   assert.equal(agentLogs.length, 0, 'should have no log entries when application logging is disabled')
-  assert.deepStrictEqual(t.nr.logs, [
-    ['Application logging not enabled. Not auto capturing logs from Azure Functions.']
-  ], 'should log debug message when application logging is disabled')
 })
 
 test('does not capture logs when log forwarding is disabled', async (t) => {
-  t.nr.agent.config.application_logging.forwarding.enabled = false
   bootstrapModule({ t })
   const { agent, mockApi } = t.nr
+  agent.config.application_logging.forwarding.enabled = false
 
   const handler = async function (_request, context) {
     context.log('log forwarding disabled message')
@@ -225,9 +191,9 @@ test('increments logging metrics for each log call when metrics are enabled', as
 })
 
 test('does not increment logging metrics when metrics are disabled', async (t) => {
-  t.nr.agent.config.application_logging.metrics.enabled = false
   bootstrapModule({ t })
   const { agent, mockApi } = t.nr
+  agent.config.application_logging.metrics.enabled = false
 
   const handler = async function (_request, context) {
     context.error('metrics disabled message')

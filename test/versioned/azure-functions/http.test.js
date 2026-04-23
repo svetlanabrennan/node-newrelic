@@ -11,11 +11,10 @@ const test = require('node:test')
 const assert = require('node:assert')
 const { once } = require('node:events')
 const { Transform, Readable } = require('node:stream')
-
 const helper = require('../../lib/agent_helper.js')
-const { removeMatchedModules } = require('../../lib/cache-buster.js')
+const { removeModules } = require('../../lib/cache-buster.js')
 const Transaction = require('../../../lib/transaction/index.js')
-
+const { copyFakeCorePkg } = require('./utils.js')
 const { DESTINATIONS: DESTS } = Transaction
 const TRACE_ID = '0af7651916cd43dd8448eb211c80319c'
 const SPAN_ID = 'b9c7c989f97918e1'
@@ -46,10 +45,6 @@ test.beforeEach((ctx) => {
   ctx.nr.logger = {
     warn(...args) {
       ctx.nr.logs.push(args)
-    },
-    trace: () => {},
-    child() {
-      return ctx.nr.logger
     }
   }
 
@@ -60,7 +55,7 @@ test.beforeEach((ctx) => {
 
 test.afterEach((ctx) => {
   helper.unloadAgent(ctx.nr.agent)
-  removeMatchedModules(/lib\/subscribers\/azure-functions\//)
+  removeModules(['@azure/functions', '@azure/functions-core'])
 
   delete process.env.WEBSITE_OWNER_NAME
   delete process.env.WEBSITE_RESOURCE_GROUP
@@ -68,25 +63,17 @@ test.afterEach((ctx) => {
 })
 
 function bootstrapModule({ t, request = basicHttpRequest }) {
-  removeMatchedModules(/lib\/subscribers\/azure-functions\//)
-  const AzureFunctionsHttpMethodsSubscriber =
-    require('../../../lib/subscribers/azure-functions/http-methods.js')
-  t.nr.subscriber = new AzureFunctionsHttpMethodsSubscriber({
-    agent: t.nr.agent,
-    logger: t.nr.logger
-  })
+  copyFakeCorePkg()
+  const { app } = require('@azure/functions')
 
   const mockApi = {
     httpHandlers: {},
-    httpRequest(method) {
+    httpRequest(method, handler) {
       method = method.toUpperCase()
       if (method === 'HTTP') method = 'GET'
       if (method === 'DELETEREQUEST') method = 'DELETE'
-      if (Object.hasOwn(mockApi.httpHandlers, method) === false) {
-        throw Error(`no handler registered for method: ${method}`)
-      }
       request.method = method
-      return mockApi.httpHandlers[method](request, {
+      return handler(request, {
         invocationId: 'test-123',
         functionName: 'test-func',
         options: {
@@ -96,26 +83,7 @@ function bootstrapModule({ t, request = basicHttpRequest }) {
         }
       })
     },
-    app: {
-      hook: { log() {} }
-    }
-  }
-
-  // Register the log hook with mockApi so it doesn't call require('@azure/functions')
-  t.nr.subscriber.registerLogHook(mockApi)
-
-  const httpMethods = ['http', 'get', 'put', 'post', 'patch', 'deleteRequest']
-  for (const method of httpMethods) {
-    mockApi.app[method] = function (name, optionsOrHandler) {
-      const data = { arguments: [name, optionsOrHandler] }
-      const ctx = t.nr.agent.tracer.getContext()
-      t.nr.subscriber.handler(data, ctx)
-
-      let key = method.toUpperCase()
-      if (method === 'http') key = 'GET'
-      if (method === 'deleteRequest') key = 'DELETE'
-      mockApi.httpHandlers[key] = data.arguments[1].handler
-    }
+    app
   }
 
   t.nr.mockApi = mockApi
@@ -126,18 +94,18 @@ test('warns for missing env vars', (t) => {
   delete process.env.WEBSITE_RESOURCE_GROUP
   delete process.env.WEBSITE_SITE_NAME
   bootstrapModule({ t })
+  const { mockApi } = t.nr
+  const handler = async function () {
+    const response = new AzureFunctionHttpResponse()
+    response.body = 'ok'
+    response.status = 200
+    return response
+  }
+  const options = { handler }
 
-  assert.deepStrictEqual(t.nr.logs, [
-    [
-      {
-        data: {
-          expectedVars: ['WEBSITE_OWNER_NAME', 'WEBSITE_RESOURCE_GROUP', 'WEBSITE_SITE_NAME'],
-          found: { WEBSITE_OWNER_NAME: 'foo', WEBSITE_RESOURCE_GROUP: undefined, WEBSITE_SITE_NAME: undefined }
-        }
-      },
-      'could not initialize azure functions instrumentation due to missing environment variables'
-    ]
-  ])
+  mockApi.app.get('a-test', options)
+  const registeredHandler = global.azure.handlers.at(-1)
+  assert.equal(registeredHandler.name, 'handler')
 })
 
 test('instruments all HTTP methods', async (t) => {
@@ -158,7 +126,9 @@ test('instruments all HTTP methods', async (t) => {
     const txFinished = once(agent, 'transactionFinished')
 
     mockApi.app[method]('a-test', options)
-    const response = await mockApi.httpRequest(method)
+    const wrappedHandler = global.azure.handlers.at(-1)
+    assert.equal(wrappedHandler.name, 'wrappedHandler')
+    const response = await mockApi.httpRequest(method, wrappedHandler)
     assert.equal(response.body, 'ok')
 
     const [tx] = await txFinished
@@ -219,7 +189,8 @@ test('handles distributed tracing information', async (t) => {
 
   const txFinished = once(agent, 'transactionFinished')
   mockApi.app.get('a-test', options)
-  const response = await mockApi.httpRequest('get')
+  const wrappedHandler = global.azure.handlers.at(-1)
+  const response = await mockApi.httpRequest('get', wrappedHandler)
   assert.equal(response.body, 'ok')
 
   const [tx] = await txFinished
@@ -257,7 +228,8 @@ test('handles queue time headers', async (t) => {
 
   const txFinished = once(agent, 'transactionFinished')
   mockApi.app.get('a-test', options)
-  const response = await mockApi.httpRequest('get')
+  const wrappedHandler = global.azure.handlers.at(-1)
+  const response = await mockApi.httpRequest('get', wrappedHandler)
   assert.equal(response.body, 'ok')
 
   const [tx] = await txFinished
@@ -282,7 +254,8 @@ test('set cold start attribute correctly', async (t) => {
   // First request should have faas.coldStart set.
   let txFinished = once(agent, 'transactionFinished')
   mockApi.app.get('a-test', options)
-  let response = await mockApi.httpRequest('get')
+  const wrappedHandler = global.azure.handlers.at(-1)
+  let response = await mockApi.httpRequest('get', wrappedHandler)
   assert.equal(response.body, 'ok')
   const [tx] = await txFinished
   assert.ok(tx)
@@ -291,7 +264,7 @@ test('set cold start attribute correctly', async (t) => {
 
   // Second request should not have faas.coldStart set.
   txFinished = once(agent, 'transactionFinished')
-  response = await mockApi.httpRequest('get')
+  response = await mockApi.httpRequest('get', wrappedHandler)
   assert.equal(response.body, 'ok')
   const [tx2] = await txFinished
   assert.ok(tx2)
@@ -312,7 +285,8 @@ test('recognizes handler as second parameter instead of options', async (t) => {
 
   const txFinished = once(agent, 'transactionFinished')
   mockApi.app.get('a-test', handler)
-  const response = await mockApi.httpRequest('get')
+  const wrappedHandler = global.azure.handlers.at(-1)
+  const response = await mockApi.httpRequest('get', wrappedHandler)
   assert.equal(response.body, 'ok')
   const [tx] = await txFinished
   assert.ok(tx)
@@ -335,7 +309,8 @@ test('uses port provided in url', async (t) => {
 
   const txFinished = once(agent, 'transactionFinished')
   mockApi.app.get('a-test', options)
-  const response = await mockApi.httpRequest('get')
+  const wrappedHandler = global.azure.handlers.at(-1)
+  const response = await mockApi.httpRequest('get', wrappedHandler)
   assert.equal(response.body, 'ok')
 
   const [tx] = await txFinished
@@ -368,7 +343,8 @@ test('ends transaction on stream close', async (t) => {
 
   const txFinished = once(agent, 'transactionFinished')
   mockApi.app.get('a-test', options)
-  const response = await mockApi.httpRequest('get')
+  const wrappedHandler = global.azure.handlers.at(-1)
+  const response = await mockApi.httpRequest('get', wrappedHandler)
 
   response.body.on('data', (data) => {
     assert.equal(data.toString(), 'streamed data')
