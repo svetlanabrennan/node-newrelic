@@ -45,7 +45,7 @@ test.afterEach((ctx) => {
 function bootstrapSubscriber({ t }) {
   removeMatchedModules(/lib\/subscribers\/azure-functions\//)
   const AzureFunctionsSubscriber =
-    require('#agentlib/subscribers/azure-functions/base.js')
+    require('#agentlib/subscribers/azure-functions/index.js')
   t.nr.subscriber = new AzureFunctionsSubscriber({
     agent: t.nr.agent,
     logger: t.nr.logger
@@ -55,6 +55,8 @@ function bootstrapSubscriber({ t }) {
 test('addFaasAttributes adds expected attributes', (t) => {
   bootstrapSubscriber({ t })
   const { agent, subscriber } = t.nr
+  const AzureHandlerBase = require('#agentlib/subscribers/azure-functions/azure-handler-base.js')
+  const handler = new AzureHandlerBase(subscriber)
   const transaction = new Transaction(agent)
   const functionContext = {
     invocationId: 'id-123',
@@ -65,7 +67,7 @@ test('addFaasAttributes adds expected attributes', (t) => {
       }
     }
   }
-  subscriber.addFaasAttributes(transaction, functionContext)
+  handler.addFaasAttributes(transaction, functionContext)
 
   const attributes = transaction.trace.attributes.get(DESTS.TRANS_COMMON)
   assert.equal(attributes['faas.invocation_id'], 'id-123')
@@ -80,7 +82,9 @@ test('addFaasAttributes adds expected attributes', (t) => {
 test('buildCloudResourceId returns correct string', (t) => {
   bootstrapSubscriber({ t })
   const { subscriber } = t.nr
-  const id = subscriber.buildCloudResourceId({ functionName: 'test-func' })
+  const AzureHandlerBase = require('#agentlib/subscribers/azure-functions/azure-handler-base.js')
+  const handler = new AzureHandlerBase(subscriber)
+  const id = handler.buildCloudResourceId({ functionName: 'test-func' })
   assert.equal(id, [
     '/subscriptions/',
     'b999997b-cb91-49e0-b922-c9188372bdba',
@@ -97,7 +101,9 @@ test('buildCloudResourceId returns correct string (missing WEBSITE_RESOURCE_GROU
   delete process.env.WEBSITE_RESOURCE_GROUP
   bootstrapSubscriber({ t })
   const { subscriber } = t.nr
-  const id = subscriber.buildCloudResourceId({ functionName: 'test-func' })
+  const AzureHandlerBase = require('#agentlib/subscribers/azure-functions/azure-handler-base.js')
+  const handler = new AzureHandlerBase(subscriber)
+  const id = handler.buildCloudResourceId({ functionName: 'test-func' })
   assert.equal(id, [
     '/subscriptions/',
     'b999997b-cb91-49e0-b922-c9188372bdba',
@@ -113,6 +119,8 @@ test('buildCloudResourceId returns correct string (missing WEBSITE_RESOURCE_GROU
 test('mapTriggerType maps recognized keys', (t) => {
   bootstrapSubscriber({ t })
   const { subscriber } = t.nr
+  const AzureHandlerBase = require('#agentlib/subscribers/azure-functions/azure-handler-base.js')
+  const handler = new AzureHandlerBase(subscriber)
   const testData = [
     ['blobTrigger', 'datasource'],
     ['cosmosDBTrigger', 'datasource'],
@@ -139,7 +147,7 @@ test('mapTriggerType maps recognized keys', (t) => {
 
   for (const [input, expected] of testData) {
     const ctx = { options: { trigger: { type: input } } }
-    const found = subscriber.mapTriggerType(ctx)
+    const found = handler.mapTriggerType(ctx)
     assert.equal(found, expected)
   }
 })
